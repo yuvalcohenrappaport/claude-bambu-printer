@@ -44,11 +44,11 @@ Plans:
   2. User can apply uniform scaling ("make it 20% bigger") and per-axis scaling ("make it 10cm wider but keep the height")
   3. System communicates confidence level when attempting complex geometry (hooks, organic shapes)
   4. System recommends print settings (infill, layer height) based on what the model is for
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 02-01: TBD
-- [ ] 02-02: TBD
+- [ ] 02-01-PLAN.md -- Extend SKILL.md with modification, scaling, and confidence assessment (Steps 9-11 + printability checklist reference)
+- [ ] 02-02-PLAN.md -- Add print settings recommendations with 3MF metadata injection (Step 12 + print settings reference + user verification)
 
 ### Phase 3: MakerWorld Search + Download
 **Goal**: Users can find and download existing open-source models from MakerWorld instead of generating from scratch
