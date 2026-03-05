@@ -29,12 +29,11 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. User can specify dimensions for a generated model and receive valid OpenSCAD code that renders successfully
   4. User receives a 3MF file saved to a clear local path, ready to open in BambuStudio
   5. Generated models handle simple-to-moderate geometry (boxes, brackets, holders, mounts)
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 01-01: TBD
-- [ ] 01-02: TBD
-- [ ] 01-03: TBD
+- [ ] 01-01-PLAN.md -- Create skill files (SKILL.md + OpenSCAD reference guide + materials reference)
+- [ ] 01-02-PLAN.md -- End-to-end pipeline test and user verification
 
 ### Phase 2: Model Refinement + Customization
 **Goal**: Users can iterate on generated models and resize any model to fit their needs
@@ -86,7 +85,7 @@ Note: Phases 3 and 4 depend only on Phase 1, not on each other. Execution is seq
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Skill Foundation + Model Generation | 0/3 | Not started | - |
+| 1. Skill Foundation + Model Generation | 0/2 | Not started | - |
 | 2. Model Refinement + Customization | 0/2 | Not started | - |
 | 3. MakerWorld Search + Download | 0/2 | Not started | - |
 | 4. Printer Integration | 0/1 | Not started | - |
