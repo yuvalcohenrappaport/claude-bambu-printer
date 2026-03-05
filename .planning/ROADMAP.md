@@ -12,7 +12,7 @@ This project delivers a Claude Code skill that turns natural language descriptio
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Skill Foundation + Model Generation** - Claude Code skill that generates parametric 3D models from natural language and exports 3MF files
+- [x] **Phase 1: Skill Foundation + Model Generation** - Claude Code skill that generates parametric 3D models from natural language and exports 3MF files
 - [ ] **Phase 2: Model Refinement + Customization** - Iterative model modification, scaling, and print settings recommendations
 - [ ] **Phase 3: MakerWorld Search + Download** - Natural language search for existing models on MakerWorld with download pipeline
 - [ ] **Phase 4: Printer Integration** - Send 3MF files to BambuLab printer and monitor print status
@@ -32,8 +32,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 **Plans**: 2 plans
 
 Plans:
-- [ ] 01-01-PLAN.md -- Create skill files (SKILL.md + OpenSCAD reference guide + materials reference)
-- [ ] 01-02-PLAN.md -- End-to-end pipeline test and user verification
+- [x] 01-01-PLAN.md -- Create skill files (SKILL.md + OpenSCAD reference guide + materials reference)
+- [x] 01-02-PLAN.md -- End-to-end pipeline test and user verification
 
 ### Phase 2: Model Refinement + Customization
 **Goal**: Users can iterate on generated models and resize any model to fit their needs
@@ -85,7 +85,7 @@ Note: Phases 3 and 4 depend only on Phase 1, not on each other. Execution is seq
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Skill Foundation + Model Generation | 0/2 | Not started | - |
+| 1. Skill Foundation + Model Generation | 2/2 | Complete | 2026-03-05 |
 | 2. Model Refinement + Customization | 0/2 | Not started | - |
 | 3. MakerWorld Search + Download | 0/2 | Not started | - |
 | 4. Printer Integration | 0/1 | Not started | - |
