@@ -16,9 +16,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Generation
 
-- [ ] **GEN-01**: User can request a simple parametric model by description (boxes, brackets, holders, mounts)
-- [ ] **GEN-02**: Claude generates valid OpenSCAD code from natural language description
-- [ ] **GEN-03**: User can specify dimensions for generated models
+- [x] **GEN-01**: User can request a simple parametric model by description (boxes, brackets, holders, mounts)
+- [x] **GEN-02**: Claude generates valid OpenSCAD code from natural language description
+- [x] **GEN-03**: User can specify dimensions for generated models
 - [ ] **GEN-04**: User can modify generated models ("add a hole", "make walls thicker", "add screw holes")
 - [ ] **GEN-05**: Claude attempts complex geometry (hooks with load reasoning, organic shapes) with clear communication of confidence level
 
@@ -26,7 +26,7 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [ ] **CUST-01**: User can apply uniform scaling to any model ("make it 20% bigger")
 - [ ] **CUST-02**: User can apply per-axis scaling ("make it 10cm wider but keep the height")
-- [ ] **CUST-03**: System exports all models to 3MF format
+- [x] **CUST-03**: System exports all models to 3MF format
 - [ ] **CUST-04**: System recommends print settings (infill, layer height) based on model purpose
 
 ### Printer
@@ -36,9 +36,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Skill
 
-- [ ] **SKIL-01**: Tool works as a Claude Code skill invoked via natural language
-- [ ] **SKIL-02**: System checks for OpenSCAD installation and guides user if missing
-- [ ] **SKIL-03**: All generated files saved to local filesystem with clear paths
+- [x] **SKIL-01**: Tool works as a Claude Code skill invoked via natural language
+- [x] **SKIL-02**: System checks for OpenSCAD installation and guides user if missing
+- [x] **SKIL-03**: All generated files saved to local filesystem with clear paths
 
 ## v2 Requirements
 
@@ -79,20 +79,20 @@ Which phases cover which requirements. Updated during roadmap creation.
 | SRCH-02 | Phase 3 | Pending |
 | SRCH-03 | Phase 3 | Pending |
 | SRCH-04 | Phase 3 | Pending |
-| GEN-01 | Phase 1 | Pending |
-| GEN-02 | Phase 1 | Pending |
-| GEN-03 | Phase 1 | Pending |
+| GEN-01 | Phase 1 | Complete |
+| GEN-02 | Phase 1 | Complete |
+| GEN-03 | Phase 1 | Complete |
 | GEN-04 | Phase 2 | Pending |
 | GEN-05 | Phase 2 | Pending |
 | CUST-01 | Phase 2 | Pending |
 | CUST-02 | Phase 2 | Pending |
-| CUST-03 | Phase 1 | Pending |
+| CUST-03 | Phase 1 | Complete |
 | CUST-04 | Phase 2 | Pending |
 | PRNT-01 | Phase 4 | Pending |
 | PRNT-02 | Phase 4 | Pending |
-| SKIL-01 | Phase 1 | Pending |
-| SKIL-02 | Phase 1 | Pending |
-| SKIL-03 | Phase 1 | Pending |
+| SKIL-01 | Phase 1 | Complete |
+| SKIL-02 | Phase 1 | Complete |
+| SKIL-03 | Phase 1 | Complete |
 
 **Coverage:**
 - v1 requirements: 18 total
