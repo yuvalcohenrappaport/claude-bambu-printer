@@ -1,22 +1,148 @@
 ---
 name: print
 description: >
-  Generate 3D printable models from natural language descriptions.
+  Generate 3D printable models from natural language descriptions,
+  or search MakerWorld for existing models to download.
   Use when the user wants to 3D print something, create a model,
-  design a part, or make something for their printer.
-  Handles OpenSCAD code generation, preview rendering, and 3MF export.
+  design a part, find an existing model, or download from MakerWorld.
+  Handles OpenSCAD code generation, preview rendering, 3MF export,
+  and MakerWorld search/download.
 allowed-tools: Bash, Read, Write, Glob, Grep
 ---
 
 # 3D Print Model Generator
 
-Generate print-ready 3MF files from natural language descriptions using OpenSCAD.
+Generate print-ready 3MF files from natural language descriptions using OpenSCAD, or search MakerWorld for existing models to download.
 
 **IMPORTANT RULES -- follow these without exception:**
 - Do NOT skip the clarification step. Always ask about dimensions, use case, and material first.
 - Do NOT auto-open BambuStudio. Always ask the user if they want to open it.
 - Do NOT generate code without asking about dimensions, use case, and material first.
 - Do NOT proceed with generation until OpenSCAD is confirmed installed.
+- Do NOT auto-download models from MakerWorld. Always ask the user to confirm their selection first.
+
+## Step 0: Detect Intent
+
+Before anything else, determine whether the user wants to **search for an existing model** or **generate a new one**.
+
+**Search indicators** (trigger search flow -- Steps S1-S3):
+- "find", "search", "look for", "download", "get me", "existing", "browse", "MakerWorld", "from makerworld"
+
+**Generate indicators** (trigger generation flow -- Steps 1-12):
+- "make", "create", "generate", "design", "build", "print me"
+
+**Ambiguous** (neither set of indicators is clearly present, or both are present):
+- Ask: "Would you like me to search MakerWorld for an existing model, or generate a custom one from scratch?"
+- Wait for user response before proceeding.
+
+**Routing:**
+- Search intent detected --> go to **Step S1** (search flow).
+- Generate intent detected --> go to **Step 1** (generation flow, unchanged).
+
+---
+
+## Search Flow (Steps S1-S3)
+
+### Step S1: Check Playwright Installation
+
+Before searching MakerWorld, verify Playwright is available.
+
+```bash
+python3 -c "from playwright.sync_api import sync_playwright; print('OK')" 2>/dev/null
+```
+
+**If NOT OK:**
+1. Tell the user: "MakerWorld search requires Playwright (a browser automation tool) which isn't installed yet."
+2. Ask: "Would you like me to install it? (`pip install playwright && playwright install chromium`)"
+3. If user agrees: run the install commands and verify.
+4. If user declines: offer to generate the model from scratch instead (go to Step 1).
+
+### Step S2: Search MakerWorld
+
+Run the search script:
+
+```bash
+python3 ~/.claude/skills/print/scripts/makerworld_search.py search "<user's description>" --limit 3
+```
+
+Parse the JSON output.
+
+**If status is "error":**
+- Tell the user the search failed and why (from the `error` field).
+- Offer: "Would you like me to try again, or generate a custom model from scratch instead?"
+- If generate: go to Step 1.
+
+**If status is "ok" but results are empty:**
+- Tell the user: "I couldn't find any matching models on MakerWorld for '<query>'."
+- Offer: "Would you like me to generate a custom model for you instead?"
+- If yes: go to Step 2 (clarification) with the original description.
+
+**If status is "ok" with results:**
+
+Present results as a numbered list. The script returns results ranked by combined score (60% rating + 40% downloads). The top result is marked as `recommended: true` in the JSON.
+
+```
+I found 3 models on MakerWorld:
+
+1. Phone Stand - Adjustable
+   Rating: 4.8/5 | Downloads: 12,500
+   Thumbnail: https://makerworld.bblmw.com/...
+   MakerWorld: https://makerworld.com/en/models/2461740
+   >> Recommended: Highest rated with 12k+ downloads
+
+2. Minimal Phone Holder
+   Rating: 4.5/5 | Downloads: 8,200
+   Thumbnail: https://makerworld.bblmw.com/...
+   MakerWorld: https://makerworld.com/en/models/3521890
+
+3. Universal Phone Dock
+   Rating: 4.2/5 | Downloads: 3,100
+   Thumbnail: https://makerworld.bblmw.com/...
+   MakerWorld: https://makerworld.com/en/models/1892345
+
+Which one would you like to download? (or say "generate" to create a custom model instead)
+```
+
+The recommended model gets a `>> Recommended: <reason>` line beneath it (use the `recommendation_reason` field from the JSON).
+
+**Always ask the user to confirm selection -- never auto-download.**
+
+### Step S3: Download Selected Model
+
+After the user picks a model (by number or name):
+
+Derive the folder name from the MakerWorld model name (not the search query). Slugify: lowercase, replace spaces with hyphens, remove special characters.
+
+```bash
+python3 ~/.claude/skills/print/scripts/makerworld_search.py download <model_id> --name "<model_name>" --output-dir "$HOME/3d-prints/<model-name-slug>"
+```
+
+Parse the JSON output.
+
+**If status is "error":** Tell the user the download failed and why. Offer to try a different model or generate instead.
+
+**If status is "ok":** Present a summary:
+
+```
+Downloaded to: ~/3d-prints/phone-stand-adjustable/
+Files:
+  - phone-stand.3mf (3MF)
+  - phone-stand-plate2.3mf (3MF)
+
+Source: https://makerworld.com/en/models/2461740
+```
+
+Then go to **Step 8** (offer to open in BambuStudio). Use the first 3MF file for the BambuStudio open command. If only STL files were downloaded, still offer to open in BambuStudio (it handles STL too).
+
+**Notes for downloaded models:**
+
+- **Scaling:** Since there is no .scad source file, suggest the user resize in BambuStudio directly rather than trying to import into OpenSCAD.
+- **Print settings (Step 12):** Can still be applied if a 3MF was downloaded. For STL-only downloads, tell the user to configure settings in BambuStudio.
+- **Modification (Step 9):** Not applicable to downloaded models (no .scad source). If the user asks to modify a downloaded model, explain this and offer to generate a similar model from scratch instead.
+
+---
+
+## Generation Flow (Steps 1-12)
 
 ## Step 1: Check OpenSCAD Installation
 
@@ -451,3 +577,4 @@ If the unzip/inject/rezip process fails for any reason:
 - @reference/materials.md -- Material-specific design parameters (PLA, PETG, TPU)
 - @reference/printability-checklist.md -- Geometry risk patterns, confidence language, messiness detection
 - @reference/print-settings.md -- Purpose-based print profiles, geometry adjustments, BambuStudio parameters
+- @scripts/makerworld_search.py -- MakerWorld search and download CLI (Playwright-based)
