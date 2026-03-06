@@ -27,7 +27,7 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **CUST-01**: User can apply uniform scaling to any model ("make it 20% bigger")
 - [x] **CUST-02**: User can apply per-axis scaling ("make it 10cm wider but keep the height")
 - [x] **CUST-03**: System exports all models to 3MF format
-- [ ] **CUST-04**: System recommends print settings (infill, layer height) based on model purpose
+- [x] **CUST-04**: System recommends print settings (infill, layer height) based on model purpose
 
 ### Printer
 
@@ -87,7 +87,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CUST-01 | Phase 2 | Complete |
 | CUST-02 | Phase 2 | Complete |
 | CUST-03 | Phase 1 | Complete |
-| CUST-04 | Phase 2 | Pending |
+| CUST-04 | Phase 2 | Complete |
 | PRNT-01 | Phase 4 | Pending |
 | PRNT-02 | Phase 4 | Pending |
 | SKIL-01 | Phase 1 | Complete |

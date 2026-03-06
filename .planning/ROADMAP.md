@@ -13,7 +13,7 @@ This project delivers a Claude Code skill that turns natural language descriptio
 Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Skill Foundation + Model Generation** - Claude Code skill that generates parametric 3D models from natural language and exports 3MF files
-- [ ] **Phase 2: Model Refinement + Customization** - Iterative model modification, scaling, and print settings recommendations
+- [x] **Phase 2: Model Refinement + Customization** - Iterative model modification, scaling, and print settings recommendations
 - [ ] **Phase 3: MakerWorld Search + Download** - Natural language search for existing models on MakerWorld with download pipeline
 - [ ] **Phase 4: Printer Integration** - Send 3MF files to BambuLab printer and monitor print status
 
@@ -47,8 +47,8 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 02-01-PLAN.md -- Extend SKILL.md with modification, scaling, and confidence assessment (Steps 9-11 + printability checklist reference)
-- [ ] 02-02-PLAN.md -- Add print settings recommendations with 3MF metadata injection (Step 12 + print settings reference + user verification)
+- [x] 02-01-PLAN.md -- Extend SKILL.md with modification, scaling, and confidence assessment (Steps 9-11 + printability checklist reference)
+- [x] 02-02-PLAN.md -- Add print settings recommendations with 3MF metadata injection (Step 12 + print settings reference + user verification)
 
 ### Phase 3: MakerWorld Search + Download
 **Goal**: Users can find and download existing open-source models from MakerWorld instead of generating from scratch
@@ -86,6 +86,6 @@ Note: Phases 3 and 4 depend only on Phase 1, not on each other. Execution is seq
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Skill Foundation + Model Generation | 2/2 | Complete    | 2026-03-05 |
-| 2. Model Refinement + Customization | 0/2 | Not started | - |
+| 2. Model Refinement + Customization | 2/2 | Complete    | 2026-03-06 |
 | 3. MakerWorld Search + Download | 0/2 | Not started | - |
 | 4. Printer Integration | 0/1 | Not started | - |
