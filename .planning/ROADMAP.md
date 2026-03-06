@@ -59,11 +59,11 @@ Plans:
   2. System selects and highlights the most durable/recommended model from search results
   3. User can download the selected model file to their local filesystem
   4. Downloaded models integrate with Phase 1/2 pipeline (scaling, 3MF export)
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 03-01: TBD
-- [ ] 03-02: TBD
+- [ ] 03-01-PLAN.md -- Standalone MakerWorld scraper script (Playwright search + download with JSON output)
+- [ ] 03-02-PLAN.md -- Integrate search/download into SKILL.md (intent detection, search steps, pipeline wiring)
 
 ### Phase 4: Printer Integration
 **Goal**: Users can send models directly to their BambuLab printer without leaving Claude Code
