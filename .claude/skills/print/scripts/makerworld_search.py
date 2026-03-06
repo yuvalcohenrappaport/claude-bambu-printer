@@ -286,6 +286,36 @@ def extract_model_fields(item: dict) -> dict | None:
         item.get("license_name") or ""
     )
 
+    # Dimensions (if available)
+    dims = None
+    for dim_key in ["dimensions", "size", "boundingBox", "bounding_box"]:
+        dim_val = item.get(dim_key)
+        if isinstance(dim_val, dict):
+            w = dim_val.get("width") or dim_val.get("w") or dim_val.get("x")
+            h = dim_val.get("height") or dim_val.get("h") or dim_val.get("y")
+            d = dim_val.get("depth") or dim_val.get("d") or dim_val.get("z") or dim_val.get("length")
+            if w and h:
+                dims = {"width": w, "height": h}
+                if d:
+                    dims["depth"] = d
+                break
+        elif isinstance(dim_val, str) and dim_val:
+            dims = {"raw": dim_val}
+            break
+
+    # Also check top-level width/height/length
+    if not dims:
+        w = item.get("width")
+        h = item.get("height")
+        if w and h:
+            dims = {"width": w, "height": h}
+            d = item.get("depth") or item.get("length")
+            if d:
+                dims["depth"] = d
+
+    if dims:
+        model["dimensions"] = dims
+
     # File formats (if available)
     formats = item.get("fileFormats") or item.get("file_formats") or []
     if isinstance(formats, list):
