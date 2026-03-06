@@ -86,17 +86,22 @@ I found 3 models on MakerWorld:
 
 1. Phone Stand - Adjustable
    Rating: 4.8/5 | Downloads: 12,500
+   License: CC BY-SA 4.0
+   Dimensions: 120 x 80 x 45 mm
    Thumbnail: https://makerworld.bblmw.com/...
    MakerWorld: https://makerworld.com/en/models/2461740
    >> Recommended: Highest rated with 12k+ downloads
 
 2. Minimal Phone Holder
    Rating: 4.5/5 | Downloads: 8,200
+   License: CC BY 4.0
+   Dimensions: 95 x 70 x 30 mm
    Thumbnail: https://makerworld.bblmw.com/...
    MakerWorld: https://makerworld.com/en/models/3521890
 
 3. Universal Phone Dock
    Rating: 4.2/5 | Downloads: 3,100
+   License: Not specified
    Thumbnail: https://makerworld.bblmw.com/...
    MakerWorld: https://makerworld.com/en/models/1892345
 
@@ -104,6 +109,9 @@ Which one would you like to download? (or say "generate" to create a custom mode
 ```
 
 The recommended model gets a `>> Recommended: <reason>` line beneath it (use the `recommendation_reason` field from the JSON).
+
+- **License**: Display the `license` field from JSON. If empty string, show "License: Not specified".
+- **Dimensions**: Only display if the `dimensions` field exists in the JSON. Format as "W x H x D mm" if width/height/depth are present, or show the raw value. Omit the line entirely if no dimensions data.
 
 **Always ask the user to confirm selection -- never auto-download.**
 
