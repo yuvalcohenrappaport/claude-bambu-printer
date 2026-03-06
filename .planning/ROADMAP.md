@@ -62,7 +62,7 @@ Plans:
 **Plans**: 2 plans
 
 Plans:
-- [ ] 03-01-PLAN.md -- Standalone MakerWorld scraper script (Playwright search + download with JSON output)
+- [x] 03-01-PLAN.md -- Standalone MakerWorld scraper script (Playwright search + download with JSON output)
 - [ ] 03-02-PLAN.md -- Integrate search/download into SKILL.md (intent detection, search steps, pipeline wiring)
 
 ### Phase 4: Printer Integration
@@ -87,5 +87,5 @@ Note: Phases 3 and 4 depend only on Phase 1, not on each other. Execution is seq
 |-------|----------------|--------|-----------|
 | 1. Skill Foundation + Model Generation | 2/2 | Complete    | 2026-03-05 |
 | 2. Model Refinement + Customization | 2/2 | Complete    | 2026-03-06 |
-| 3. MakerWorld Search + Download | 0/2 | Not started | - |
+| 3. MakerWorld Search + Download | 1/2 | In progress | - |
 | 4. Printer Integration | 0/1 | Not started | - |

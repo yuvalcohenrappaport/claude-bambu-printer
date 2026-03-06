@@ -9,10 +9,10 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Search
 
-- [ ] **SRCH-01**: User can describe desired object in natural language and get matching MakerWorld results
-- [ ] **SRCH-02**: User can see model preview info (name, image URL, dimensions, license, ratings)
-- [ ] **SRCH-03**: System selects most durable/recommended model from results
-- [ ] **SRCH-04**: User can download selected model file from MakerWorld
+- [x] **SRCH-01**: User can describe desired object in natural language and get matching MakerWorld results
+- [x] **SRCH-02**: User can see model preview info (name, image URL, dimensions, license, ratings)
+- [x] **SRCH-03**: System selects most durable/recommended model from results
+- [x] **SRCH-04**: User can download selected model file from MakerWorld
 
 ### Generation
 
@@ -75,10 +75,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| SRCH-01 | Phase 3 | Pending |
-| SRCH-02 | Phase 3 | Pending |
-| SRCH-03 | Phase 3 | Pending |
-| SRCH-04 | Phase 3 | Pending |
+| SRCH-01 | Phase 3 | Complete |
+| SRCH-02 | Phase 3 | Complete |
+| SRCH-03 | Phase 3 | Complete |
+| SRCH-04 | Phase 3 | Complete |
 | GEN-01 | Phase 1 | Complete |
 | GEN-02 | Phase 1 | Complete |
 | GEN-03 | Phase 1 | Complete |
