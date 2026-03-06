@@ -38,39 +38,87 @@ def output_error(error: str, **extra):
     output_json(result)
 
 
-def get_browser_context(playwright):
+def get_browser_context(playwright, headless: bool = True):
     """Create a persistent browser context for Cloudflare bypass."""
     os.makedirs(BROWSER_DATA_DIR, exist_ok=True)
+
+    # Stealth args to reduce bot detection
+    args = [
+        "--disable-blink-features=AutomationControlled",
+        "--no-sandbox",
+    ]
+
     browser = playwright.chromium.launch_persistent_context(
         BROWSER_DATA_DIR,
-        headless=True,
+        headless=headless,
+        args=args,
         user_agent=(
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
             "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "Chrome/120.0.0.0 Safari/537.36"
+            "Chrome/131.0.0.0 Safari/537.36"
         ),
         viewport={"width": 1280, "height": 720},
+        locale="en-US",
+        timezone_id="America/New_York",
     )
+
+    # Remove webdriver flag
+    for page in browser.pages:
+        page.add_init_script("""
+            Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+        """)
+
     return browser
 
 
 def extract_next_data(page) -> dict | None:
-    """Extract __NEXT_DATA__ JSON from a loaded page."""
+    """Extract __NEXT_DATA__ JSON from a loaded page.
+
+    Tries script tag first, then window.__NEXT_DATA__ via evaluate.
+    """
+    # Method 1: script tag
     try:
         script = page.query_selector("script#__NEXT_DATA__")
         if script:
             text = script.inner_text()
-            return json.loads(text)
+            data = json.loads(text)
+            if data and data.get("props"):
+                eprint("[extract_next_data] Found via script tag")
+                return data
     except Exception as e:
-        eprint(f"[extract_next_data] Error: {e}")
+        eprint(f"[extract_next_data] Script tag error: {e}")
+
+    # Method 2: window.__NEXT_DATA__
+    try:
+        data = page.evaluate("() => window.__NEXT_DATA__")
+        if data and isinstance(data, dict) and data.get("props"):
+            eprint("[extract_next_data] Found via window.__NEXT_DATA__")
+            return data
+    except Exception as e:
+        eprint(f"[extract_next_data] window.__NEXT_DATA__ error: {e}")
+
     return None
 
 
-def wait_for_content(page, timeout_ms: int = 30000):
+def wait_for_content(page, timeout_ms: int = 45000):
     """Wait for page to load past Cloudflare challenge.
 
     Tries model-card selector first, falls back to __NEXT_DATA__ script tag.
+    If Cloudflare challenge is detected, waits for it to resolve.
     """
+    # Check if we're on a Cloudflare challenge page and wait it out
+    try:
+        # Give Cloudflare challenge time to auto-resolve (up to 15s)
+        for _ in range(15):
+            title = page.title()
+            if "just a moment" in title.lower() or "cloudflare" in title.lower():
+                eprint("[wait_for_content] Cloudflare challenge detected, waiting...")
+                time.sleep(1)
+            else:
+                break
+    except Exception:
+        pass
+
     try:
         page.wait_for_selector("[data-testid='model-card']", timeout=timeout_ms)
         return True
@@ -325,7 +373,7 @@ def try_api_search(page, query: str, limit: int) -> list[dict]:
         return []
 
 
-def search_makerworld(query: str, limit: int = 3) -> dict:
+def search_makerworld(query: str, limit: int = 3, headless: bool = True) -> dict:
     """Search MakerWorld and return structured results."""
     from playwright.sync_api import sync_playwright
 
@@ -333,14 +381,17 @@ def search_makerworld(query: str, limit: int = 3) -> dict:
     browser = None
     try:
         playwright = sync_playwright().start()
-        browser = get_browser_context(playwright)
+        browser = get_browser_context(playwright, headless=headless)
         page = browser.new_page()
+        page.add_init_script("""
+            Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+        """)
 
         # Navigate to search page
         search_url = f"{MAKERWORLD_BASE}/en/search/models?keyword={quote_plus(query)}"
         eprint(f"[search] Navigating to: {search_url}")
 
-        page.goto(search_url, wait_until="networkidle", timeout=60000)
+        page.goto(search_url, wait_until="domcontentloaded", timeout=60000)
 
         # Wait for content past Cloudflare
         content_loaded = wait_for_content(page)
@@ -502,7 +553,7 @@ def download_file_from_url(page, url: str, output_path: Path) -> bool:
         return False
 
 
-def download_model(model_id: str, model_name: str, output_dir: str) -> dict:
+def download_model(model_id: str, model_name: str, output_dir: str, headless: bool = True) -> dict:
     """Download model files from MakerWorld."""
     from playwright.sync_api import sync_playwright
 
@@ -513,13 +564,16 @@ def download_model(model_id: str, model_name: str, output_dir: str) -> dict:
     browser = None
     try:
         playwright = sync_playwright().start()
-        browser = get_browser_context(playwright)
+        browser = get_browser_context(playwright, headless=headless)
         page = browser.new_page()
+        page.add_init_script("""
+            Object.defineProperty(navigator, 'webdriver', { get: () => undefined });
+        """)
 
         # Navigate to model page
         model_url = f"{MAKERWORLD_BASE}/en/models/{model_id}"
         eprint(f"[download] Navigating to: {model_url}")
-        page.goto(model_url, wait_until="networkidle", timeout=60000)
+        page.goto(model_url, wait_until="domcontentloaded", timeout=60000)
 
         # Wait for content
         wait_for_content(page)
@@ -638,6 +692,12 @@ def main():
     )
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
+    # Global options
+    parser.add_argument(
+        "--no-headless", action="store_true",
+        help="Run browser in headed mode (visible window) for Cloudflare bypass",
+    )
+
     # Search subcommand
     search_parser = subparsers.add_parser("search", help="Search MakerWorld for 3D models")
     search_parser.add_argument("query", help="Search query (e.g., 'phone stand')")
@@ -658,12 +718,14 @@ def main():
         parser.print_help()
         sys.exit(1)
 
+    headless = not args.no_headless
+
     if args.command == "search":
-        result = search_makerworld(args.query, args.limit)
+        result = search_makerworld(args.query, args.limit, headless=headless)
         output_json(result)
 
     elif args.command == "download":
-        result = download_model(args.model_id, args.name, args.output_dir)
+        result = download_model(args.model_id, args.name, args.output_dir, headless=headless)
         output_json(result)
 
 
