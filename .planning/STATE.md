@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-03-05)
 
 **Core value:** Any 3D printer owner can go from "I want to print X" to a print-ready 3MF file through natural language -- no CAD skills required.
-**Current focus:** Phase 3 in progress: MakerWorld Search + Download (Plan 01 complete, Plan 02 next)
+**Current focus:** Phase 3 complete: MakerWorld Search + Download. Phase 4 next.
 
 ## Current Position
 
-Phase: 3 of 4 (MakerWorld Search + Download) -- IN PROGRESS
-Plan: 1 of 2 complete in current phase
-Status: Plan 03-01 Complete
-Last activity: 2026-03-06 -- Completed 03-01-PLAN.md
+Phase: 3 of 4 (MakerWorld Search + Download) -- COMPLETE
+Plan: 2 of 2 complete in current phase
+Status: Phase 03 Complete
+Last activity: 2026-03-06 -- Completed 03-02-PLAN.md
 
-Progress: [█████░░░░░] Phase 3: 50% | Overall: [███████░░░] 71%
+Progress: [██████████] Phase 3: 100% | Overall: [████████░░] 86%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 5
-- Average duration: 18min
-- Total execution time: ~1h 32min
+- Total plans completed: 6
+- Average duration: 17min
+- Total execution time: ~1h 44min
 
 **By Phase:**
 
@@ -39,6 +39,7 @@ Progress: [█████░░░░░] Phase 3: 50% | Overall: [████
 | Phase 02 P01 | 2min | 2 tasks | 2 files |
 | Phase 02 P02 | 5min | 3 tasks | 2 files |
 | Phase 03 P01 | 15min | 2 tasks | 1 files |
+| Phase 03 P02 | 12min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -63,6 +64,9 @@ Recent decisions affecting current work:
 - [Phase 03]: Playwright with persistent browser context for Cloudflare bypass
 - [Phase 03]: Stealth mode + headed fallback for resistant Cloudflare challenges
 - [Phase 03]: MakerWorld ratings unavailable in search results (0.0); ranking uses download counts
+- [Phase 03]: Search and generation as parallel flows within same skill (Step 0 routes to S1-S3 or 1-12)
+- [Phase 03]: Keyword-based intent detection with ambiguity fallback to user prompt
+- [Phase 03]: Downloaded models cannot use Step 9 modification (no .scad source)
 
 ### Pending Todos
 
@@ -77,5 +81,5 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-03-06
-Stopped at: Completed 03-01-PLAN.md
-Resume file: 03-02-PLAN.md next
+Stopped at: Completed 03-02-PLAN.md (Phase 03 complete)
+Resume file: Phase 04 plans next
