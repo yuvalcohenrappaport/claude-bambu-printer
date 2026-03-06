@@ -19,13 +19,13 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **GEN-01**: User can request a simple parametric model by description (boxes, brackets, holders, mounts)
 - [x] **GEN-02**: Claude generates valid OpenSCAD code from natural language description
 - [x] **GEN-03**: User can specify dimensions for generated models
-- [ ] **GEN-04**: User can modify generated models ("add a hole", "make walls thicker", "add screw holes")
-- [ ] **GEN-05**: Claude attempts complex geometry (hooks with load reasoning, organic shapes) with clear communication of confidence level
+- [x] **GEN-04**: User can modify generated models ("add a hole", "make walls thicker", "add screw holes")
+- [x] **GEN-05**: Claude attempts complex geometry (hooks with load reasoning, organic shapes) with clear communication of confidence level
 
 ### Customization
 
-- [ ] **CUST-01**: User can apply uniform scaling to any model ("make it 20% bigger")
-- [ ] **CUST-02**: User can apply per-axis scaling ("make it 10cm wider but keep the height")
+- [x] **CUST-01**: User can apply uniform scaling to any model ("make it 20% bigger")
+- [x] **CUST-02**: User can apply per-axis scaling ("make it 10cm wider but keep the height")
 - [x] **CUST-03**: System exports all models to 3MF format
 - [ ] **CUST-04**: System recommends print settings (infill, layer height) based on model purpose
 
@@ -82,10 +82,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | GEN-01 | Phase 1 | Complete |
 | GEN-02 | Phase 1 | Complete |
 | GEN-03 | Phase 1 | Complete |
-| GEN-04 | Phase 2 | Pending |
-| GEN-05 | Phase 2 | Pending |
-| CUST-01 | Phase 2 | Pending |
-| CUST-02 | Phase 2 | Pending |
+| GEN-04 | Phase 2 | Complete |
+| GEN-05 | Phase 2 | Complete |
+| CUST-01 | Phase 2 | Complete |
+| CUST-02 | Phase 2 | Complete |
 | CUST-03 | Phase 1 | Complete |
 | CUST-04 | Phase 2 | Pending |
 | PRNT-01 | Phase 4 | Pending |
