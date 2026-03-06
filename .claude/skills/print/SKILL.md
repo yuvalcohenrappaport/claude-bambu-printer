@@ -197,7 +197,166 @@ After showing the summary, ask:
 
 Do NOT auto-open BambuStudio. Do NOT skip this question.
 
+## Step 9: Modify Existing Model
+
+This step is triggered when the user asks to change a previously generated model (e.g., "add screw holes", "make the walls thicker", "add a slot on the side").
+
+### 1. Locate the Model
+
+Check conversation context for recently generated models. If starting a fresh conversation, browse `~/3d-prints/` directories to find the .scad file the user is referring to.
+
+### 2. Create Versioned Backup Before ANY Edit
+
+Always back up the current model before making changes. Use sequential version numbers.
+
+```bash
+OUTPUT_DIR="$HOME/3d-prints/<project-name>"
+NEXT_VER=1
+while [ -f "$OUTPUT_DIR/model_v${NEXT_VER}.scad" ]; do
+    NEXT_VER=$((NEXT_VER + 1))
+done
+cp "$OUTPUT_DIR/model.scad" "$OUTPUT_DIR/model_v${NEXT_VER}.scad"
+```
+
+### 3. Read and Understand the .scad File
+
+Before editing, read the full file. Identify:
+- Parametric variables at the top (dimensions, wall thickness, tolerances)
+- Module structure (which modules create which parts)
+- How dimensions relate (what depends on what)
+
+This understanding is essential for both modification and scaling.
+
+### 4. Apply the Requested Modification
+
+Edit `model.scad` in place:
+- **For additions** (holes, screw mounts, features): add new modules and integrate them into the main geometry.
+- **For changes** (thicker walls, different dimensions): modify the relevant parametric variables.
+- **For removals**: remove modules/geometry, clean up unused variables.
+
+### 5. Show Changes as a Summary Diff -- Do NOT Auto-Render
+
+After editing, present a human-readable summary of what changed. Do NOT run OpenSCAD automatically.
+
+```
+Changes made to model.scad:
+  - Added: screw_hole_d = 5mm (M5 screw holes)
+  - Added: module screw_holes() at lines 45-55
+  - Modified: height 40mm -> 50mm
+  - Removed: decorative_ridge module (per request)
+
+Want me to render this?
+```
+
+Only render after the user confirms.
+
+### 6. Render After User Confirms
+
+Use the same render/export commands from Steps 5-6 (preview PNG + 3MF export).
+
+### 7. Check for Messiness
+
+Reference @reference/printability-checklist.md Section 3 (Messiness Detection).
+
+On every modification, check:
+- How many backup versions exist (model_v1.scad, model_v2.scad, etc.)
+- If version count >= 5 AND code quality signals fire (file too long, deep nesting, commented-out blocks, shadowed variables), suggest regeneration:
+
+> "This model has gone through several iterations and the code is getting complex. Want me to regenerate it from scratch based on what we have now? I'll keep the current version as a backup."
+
+## Step 10: Scale/Resize Model
+
+This step is triggered when the user asks to resize, scale, or change specific dimensions of an existing model.
+
+### 1. Parse the Scaling Request
+
+Accept both input formats:
+- **Relative**: "20% bigger", "half the height", "twice as wide"
+- **Absolute**: "set width to 10cm", "make it 150mm tall", "I need the depth to be exactly 80mm"
+
+Determine which axes are affected (all for uniform, specific for per-axis).
+
+### 2. Preferred Approach: Modify Parametric Variables
+
+Read the .scad file and classify variables:
+- **Dimension variables** (width, depth, height, diameter, length, etc.) -- these get scaled
+- **Wall/structural variables** (wall, clearance, tolerance, fillet_r, etc.) -- these do NOT get scaled
+
+**Uniform scaling** ("make it 20% bigger"):
+- Multiply ALL dimension variables by the scale factor
+- DO NOT modify wall thickness, clearance, or tolerance variables -- they must stay at their designed values
+
+**Per-axis scaling** ("make it 10cm wider"):
+- Modify only the relevant axis variable(s)
+- Leave wall and other axes unchanged
+
+**If dimensions are hardcoded** (magic numbers in the body instead of variables at the top):
+- Refactor them to parametric variables first
+- Then apply the scaling to the new variables
+
+### 3. Fallback: scale() Transform
+
+Only use `scale()` if the parametric approach is impossible (e.g., imported file, heavily procedural code with no clear variables).
+
+When falling back to `scale()`:
+1. Explain to the user why parametric scaling isn't possible
+2. Offer two options:
+   - (a) Refactor to parametric first, then scale properly
+   - (b) Use `scale()` with the caveat that wall thickness will change proportionally
+3. If user chooses `scale()`: wrap the entire model in `scale([sx, sy, sz]) { ... }` and warn about wall thickness changes
+
+### 4. Auto-Fix Printability After Scaling
+
+After applying any scaling, check:
+- Has any wall thickness fallen below the material minimum? (1.2mm for PLA/PETG, 1.6mm for TPU)
+- Have any features become smaller than 1mm?
+
+If issues are found, auto-fix them and tell the user:
+
+> "I adjusted wall thickness from 1.0mm back to 1.2mm (PLA minimum) after scaling."
+
+> "The screw hole rim was 0.8mm after scaling -- I bumped it to 1.2mm so it prints solidly."
+
+### 5. Create Backup and Show Diff
+
+Follow the same pattern as Step 9:
+- Create versioned backup before editing
+- Show a summary of changes
+- Ask before rendering
+
+## Step 11: Confidence Assessment
+
+Reference @reference/printability-checklist.md for risk analysis patterns and language templates.
+
+This is NOT a standalone step the user triggers. It is a behavior Claude applies automatically during generation (Step 3) and modification (Step 9).
+
+### During Initial Generation (Step 3)
+
+Before writing OpenSCAD code, mentally scan the user's request against the geometry risk checklist:
+
+- **HIGH RISK items detected**: Warn the user BEFORE generating. Offer a simpler geometric alternative. Explain WHY with a brief technical reason (e.g., "overhangs above 60 degrees sag because there's nothing for the filament to bond to").
+- **MEDIUM RISK items detected**: Proceed with generation, then note concerns AFTER showing the code (e.g., "This has a 40mm bridge span -- should print fine but you may see some sag on the underside").
+- **LOW RISK only**: No special note needed. Optionally mention "Straightforward geometry, this should print cleanly."
+
+### During Modification (Step 9)
+
+After understanding the requested change, assess whether it introduces new geometry risk:
+
+- A new feature with steep overhangs? Warn before applying.
+- Thinning a wall below 2mm? Note after showing the diff.
+- Adding simple mounting holes? No special note.
+
+Same warning/note pattern as above.
+
+### Language Guidelines
+
+- Use natural, conversational language -- see @reference/printability-checklist.md Section 2 for templates
+- Never use percentages ("80% confidence") or tier labels ("MEDIUM RISK")
+- Always explain WHY something is risky with a brief technical reason
+- For high-risk geometry, always offer a simpler alternative before proceeding
+
 ## Reference Files
 
 - @reference/openscad-guide.md -- OpenSCAD code patterns, templates, anti-patterns, CLI reference
 - @reference/materials.md -- Material-specific design parameters (PLA, PETG, TPU)
+- @reference/printability-checklist.md -- Geometry risk patterns, confidence language, messiness detection
