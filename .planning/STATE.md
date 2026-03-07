@@ -5,23 +5,23 @@
 See: .planning/PROJECT.md (updated 2026-03-05)
 
 **Core value:** Any 3D printer owner can go from "I want to print X" to a print-ready 3MF file through natural language -- no CAD skills required.
-**Current focus:** Phase 3 complete: MakerWorld Search + Download. Phase 4 next.
+**Current focus:** Phase 4: Printer Integration (BambuLab Cloud API scripts)
 
 ## Current Position
 
-Phase: 3 of 4 (MakerWorld Search + Download) -- COMPLETE
-Plan: 3 of 3 complete in current phase
-Status: Phase 03 Complete (including gap closure)
-Last activity: 2026-03-06 -- Completed 03-03-PLAN.md (gap closure)
+Phase: 4 of 4 (Printer Integration)
+Plan: 1 of 2 complete in current phase
+Status: Executing Phase 04
+Last activity: 2026-03-07 -- Completed 04-01-PLAN.md (printer scripts)
 
-Progress: [██████████] Phase 3: 100% | Overall: [████████░░] 86%
+Progress: [█████████░] Phase 4: 50% | Overall: [█████████░] 93%
 
 ## Performance Metrics
 
 **Velocity:**
-- Total plans completed: 7
-- Average duration: 15min
-- Total execution time: ~1h 45min
+- Total plans completed: 8
+- Average duration: 14min
+- Total execution time: ~1h 48min
 
 **By Phase:**
 
@@ -41,6 +41,7 @@ Progress: [██████████] Phase 3: 100% | Overall: [███�
 | Phase 03 P01 | 15min | 2 tasks | 1 files |
 | Phase 03 P02 | 12min | 2 tasks | 1 files |
 | Phase 03 P03 | 1min | 2 tasks | 2 files |
+| Phase 04 P01 | 3min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -69,6 +70,9 @@ Recent decisions affecting current work:
 - [Phase 03]: Keyword-based intent detection with ambiguity fallback to user prompt
 - [Phase 03]: Downloaded models cannot use Step 9 modification (no .scad source)
 - [Phase 03]: Best-effort dimension extraction with graceful omission when data unavailable
+- [Phase 04]: Used bambulab library's built-in MQTT control methods (pause_print/resume_print/stop_print) instead of raw publish
+- [Phase 04]: Token expiry warning at 20h in every JSON response
+- [Phase 04]: Merged preset management into printer_setup.py (not separate script)
 
 ### Pending Todos
 
@@ -77,11 +81,11 @@ None yet.
 ### Blockers/Concerns
 
 - [Research]: MakerWorld has no public API; scraping may be blocked by anti-bot protections (Phase 3 risk) -- RESOLVED: Playwright persistent context works
-- [Research]: bambulabs-api is unofficial; requires sliced 3MF files, not raw meshes (Phase 4 risk)
+- [Research]: bambulabs-api is unofficial; requires sliced 3MF files, not raw meshes (Phase 4 risk) -- RESOLVED: bambu-lab-cloud-api works for cloud print; auto-slicing via BambuStudio CLI
 - [Research]: SolidPython2 + Claude code generation accuracy needs empirical testing (Phase 1) -- RESOLVED: raw OpenSCAD works well
 
 ## Session Continuity
 
-Last session: 2026-03-06
-Stopped at: Completed 03-03-PLAN.md (gap closure, Phase 03 fully complete)
-Resume file: Phase 04 plans next
+Last session: 2026-03-07
+Stopped at: Completed 04-01-PLAN.md (printer integration scripts)
+Resume file: 04-02-PLAN.md (SKILL.md integration)

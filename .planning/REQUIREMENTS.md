@@ -31,8 +31,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Printer
 
-- [ ] **PRNT-01**: User can send 3MF to BambuLab printer for printing
-- [ ] **PRNT-02**: User can check printer status
+- [x] **PRNT-01**: User can send 3MF to BambuLab printer for printing
+- [x] **PRNT-02**: User can check printer status
 
 ### Skill
 
@@ -88,8 +88,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CUST-02 | Phase 2 | Complete |
 | CUST-03 | Phase 1 | Complete |
 | CUST-04 | Phase 2 | Complete |
-| PRNT-01 | Phase 4 | Pending |
-| PRNT-02 | Phase 4 | Pending |
+| PRNT-01 | Phase 4 | Complete |
+| PRNT-02 | Phase 4 | Complete |
 | SKIL-01 | Phase 1 | Complete |
 | SKIL-02 | Phase 1 | Complete |
 | SKIL-03 | Phase 1 | Complete |
