@@ -2,36 +2,20 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-07)
+See: .planning/PROJECT.md (updated 2026-03-08)
 
 **Core value:** Any 3D printer owner can go from "I want to print X" to a physical print through natural language — no CAD skills required.
-**Current focus:** v1.0 shipped. Planning next milestone.
+**Current focus:** v2.0 Web Dashboard — browser-based interface wrapping Claude Code.
 
 ## Current Position
 
-Milestone: v1.0 — SHIPPED 2026-03-07
-Status: All 4 phases complete (9 plans)
-Last activity: 2026-03-07 — v1.0 milestone archived
+Milestone: v2.0 — Web Dashboard
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-03-08 — Milestone v2.0 started
 
-Progress: [██████████] v1.0: 100%
-
-## Performance Metrics
-
-**Velocity:**
-- Total plans completed: 9
-- Average duration: 13min
-- Total execution time: ~2h
-- Timeline: 3 days (2026-03-05 to 2026-03-07)
-
-| Phase 01 P01 | 55min | 2 tasks | 3 files |
-| Phase 01 P02 | 15min | 2 tasks | 3 files |
-| Phase 02 P01 | 2min | 2 tasks | 2 files |
-| Phase 02 P02 | 5min | 3 tasks | 2 files |
-| Phase 03 P01 | 15min | 2 tasks | 1 files |
-| Phase 03 P02 | 12min | 2 tasks | 1 files |
-| Phase 03 P03 | 1min | 2 tasks | 2 files |
-| Phase 04 P01 | 3min | 2 tasks | 2 files |
-| Phase 04 P02 | 10min | 2 tasks | 1 files |
+Progress: [░░░░░░░░░░] v2.0: 0%
 
 ## Accumulated Context
 
@@ -43,6 +27,6 @@ Progress: [██████████] v1.0: 100%
 
 ## Session Continuity
 
-Last session: 2026-03-07
-Stopped at: v1.0 milestone completed and archived
-Resume file: None — start next milestone with /gsd:new-milestone
+Last session: 2026-03-08
+Stopped at: Defining v2.0 requirements
+Resume file: None

@@ -2,7 +2,7 @@
 
 ## What This Is
 
-A Claude Code skill that turns natural language descriptions into print-ready 3MF files and sends them directly to BambuLab printers. Users can generate models via OpenSCAD, search MakerWorld for existing designs, customize with scaling and settings, and print — all through conversation.
+A web-based 3D printing dashboard backed by Claude Code. Users interact through a browser interface with live 3D preview, MakerWorld search, print controls, and real-time printer monitoring — all powered by Claude Code running as a backend subprocess. Previously a CLI-only Claude Code skill (v1.0).
 
 ## Core Value
 
@@ -23,15 +23,34 @@ Any 3D printer owner can go from "I want to print X" to a physical print through
 
 ### Active
 
-(None yet — define in next milestone)
+- [ ] Web dashboard with chat interface, 3D preview, and print controls
+- [ ] FastAPI backend wrapping Claude Code subprocess via WebSocket
+- [ ] MCP server for Claude Code to push UI updates (preview, status, search)
+- [ ] Live MQTT streaming for real-time printer status (progress, temps, layers)
+- [ ] MakerWorld split-view search (card grid + 3D preview of selected model)
+- [ ] Auto-updating 3D preview when models are generated/modified
 
 ### Out of Scope
 
 - Complex multi-part assemblies — OpenSCAD generation limited to simple/moderate models
-- Standalone app / dashboard — informed by skill feedback
 - Support for non-MakerWorld repositories (Thingiverse, Printables) — future
 - Parametric editing of downloaded models (beyond scaling) — no .scad source
 - Non-BambuLab printers — BambuLab ecosystem focus
+- Claude API direct integration — using Claude Code as backend for now
+- Mobile app — web-first
+
+## Current Milestone: v2.0 Web Dashboard
+
+**Goal:** Give users a browser-based visual interface for the full 3D printing workflow, with Claude Code as the AI backend.
+
+**Target features:**
+- Full dashboard: 3D preview + controls + printer status + print queue + MakerWorld search
+- Chat interface in web app — user types here, messages relay to Claude Code subprocess
+- Live MQTT streaming for real-time printer monitoring
+- MCP server so Claude Code can push updates to the UI
+- Auto-updating Three.js 3D preview
+
+**Architecture:** React + Vite + Three.js frontend, Python FastAPI + WebSocket backend, Claude Code subprocess, MCP server for bidirectional communication.
 
 ## Context
 
@@ -39,6 +58,7 @@ Shipped v1.0 with 3,387 LOC across Python scripts and Markdown skill files.
 Tech stack: OpenSCAD (generation), Playwright (MakerWorld scraping), bambu-lab-cloud-api (printer).
 Known issue: MakerWorld Cloudflare protection intermittently blocks automated downloads.
 All printer operations require physical hardware — tested via code review, not E2E.
+v2.0 adds: React, Vite, Three.js, FastAPI, WebSocket, MCP server.
 
 ## Constraints
 
@@ -55,7 +75,9 @@ All printer operations require physical hardware — tested via code review, not
 | MakerWorld scraping (no API) | Only option — no public API exists | ✓ Works via Playwright persistent context |
 | OpenSCAD for model generation | Claude can generate SCAD code; proven for simple models | ✓ Reliable for simple-moderate geometry |
 | 3MF as sole export format | BambuLab standard, most capable format | ✓ Good — supports embedded settings |
-| Claude Code skill first, app later | De-risks product with technical early adopters | ✓ Good — shipped full pipeline as skill |
+| Claude Code skill first, app later | De-risks product with technical early adopters | ✓ Good — shipped full pipeline as skill, now building web UI |
+| React + FastAPI + Claude Code subprocess | Python matches existing scripts, WebSocket for real-time, Claude Code stays the brain | — Pending |
+| MCP for UI updates | Claude Code pushes to web app via MCP tools | — Pending |
 | Open-source models only | Avoids licensing complications | ✓ Good |
 | Raw OpenSCAD over SolidPython2 | More LLM training data, users can edit .scad directly | ✓ Good |
 | Playwright with persistent context | Cloudflare bypass for MakerWorld | ⚠ Revisit — Cloudflare now blocking intermittently |
@@ -63,4 +85,4 @@ All printer operations require physical hardware — tested via code review, not
 | BambuStudio CLI for auto-slicing | Required for cloud print (sliced 3MF) | ⚠ Revisit — LOW confidence on reliability |
 
 ---
-*Last updated: 2026-03-07 after v1.0 milestone*
+*Last updated: 2026-03-08 after v2.0 milestone start*
