@@ -2,38 +2,27 @@
 
 ## Project Reference
 
-See: .planning/PROJECT.md (updated 2026-03-05)
+See: .planning/PROJECT.md (updated 2026-03-07)
 
-**Core value:** Any 3D printer owner can go from "I want to print X" to a print-ready 3MF file through natural language -- no CAD skills required.
-**Current focus:** All phases complete
+**Core value:** Any 3D printer owner can go from "I want to print X" to a physical print through natural language — no CAD skills required.
+**Current focus:** v1.0 shipped. Planning next milestone.
 
 ## Current Position
 
-Phase: 4 of 4 (Printer Integration)
-Plan: 2 of 2 complete in current phase
-Status: All Phases Complete
-Last activity: 2026-03-07 -- Completed 04-02-PLAN.md (SKILL.md printer integration)
+Milestone: v1.0 — SHIPPED 2026-03-07
+Status: All 4 phases complete (9 plans)
+Last activity: 2026-03-07 — v1.0 milestone archived
 
-Progress: [██████████] Phase 4: 100% | Overall: [██████████] 100%
+Progress: [██████████] v1.0: 100%
 
 ## Performance Metrics
 
 **Velocity:**
 - Total plans completed: 9
 - Average duration: 13min
-- Total execution time: ~1h 58min
+- Total execution time: ~2h
+- Timeline: 3 days (2026-03-05 to 2026-03-07)
 
-**By Phase:**
-
-| Phase | Plans | Total | Avg/Plan |
-|-------|-------|-------|----------|
-| - | - | - | - |
-
-**Recent Trend:**
-- Last 5 plans: -
-- Trend: -
-
-*Updated after each plan completion*
 | Phase 01 P01 | 55min | 2 tasks | 3 files |
 | Phase 01 P02 | 15min | 2 tasks | 3 files |
 | Phase 02 P01 | 2min | 2 tasks | 2 files |
@@ -46,50 +35,14 @@ Progress: [██████████] Phase 4: 100% | Overall: [███�
 
 ## Accumulated Context
 
-### Decisions
-
-Decisions are logged in PROJECT.md Key Decisions table.
-Recent decisions affecting current work:
-
-- [Roadmap]: Phase 1 is self-contained (no network APIs, no hardware) to prove core value fast
-- [Roadmap]: MakerWorld search isolated in Phase 3 due to scraping risk (no public API, anti-bot protections)
-- [Roadmap]: Printer integration deferred to Phase 4 (requires sliced 3MF + physical hardware)
-- [Phase 01]: Raw OpenSCAD over SolidPython2 for code generation (more LLM training data, users can edit .scad directly)
-- [Phase 01]: 8-step generation flow: install check, clarify, generate, save, render, retry, summary, BambuStudio offer
-- [Phase 01]: OpenSCAD CLI works headless on macOS without display workarounds
-- [Phase 01]: DeepOcean colorscheme confirmed as good default for preview rendering
-- [Phase 02]: Sequential v1/v2/v3 versioning for model backups (easier conversation reference than timestamps)
-- [Phase 02]: Messiness detection at version >= 5 with code quality signals
-- [Phase 02]: Natural language confidence templates (no percentages or tier labels)
-- [Phase 02]: Embed print settings in 3MF Metadata/print_profile.config (unzip/inject/rezip)
-- [Phase 02]: Graceful fallback to text output if 3MF injection fails
-- [Phase 02]: Always caveat that BambuStudio saved profiles may override embedded settings
-- [Phase 03]: Playwright with persistent browser context for Cloudflare bypass
-- [Phase 03]: Stealth mode + headed fallback for resistant Cloudflare challenges
-- [Phase 03]: MakerWorld ratings unavailable in search results (0.0); ranking uses download counts
-- [Phase 03]: Search and generation as parallel flows within same skill (Step 0 routes to S1-S3 or 1-12)
-- [Phase 03]: Keyword-based intent detection with ambiguity fallback to user prompt
-- [Phase 03]: Downloaded models cannot use Step 9 modification (no .scad source)
-- [Phase 03]: Best-effort dimension extraction with graceful omission when data unavailable
-- [Phase 04]: Used bambulab library's built-in MQTT control methods (pause_print/resume_print/stop_print) instead of raw publish
-- [Phase 04]: Token expiry warning at 20h in every JSON response
-- [Phase 04]: Merged preset management into printer_setup.py (not separate script)
-- [Phase 04]: Printer intent detection via keyword matching in Step 0 (consistent with search intent pattern)
-- [Phase 04]: Confirmation summary required before every print send (safety rule)
-- [Phase 04]: Cancel requires explicit user confirmation (safety rule)
-
-### Pending Todos
-
-None yet.
-
 ### Blockers/Concerns
 
-- [Research]: MakerWorld has no public API; scraping may be blocked by anti-bot protections (Phase 3 risk) -- RESOLVED: Playwright persistent context works
-- [Research]: bambulabs-api is unofficial; requires sliced 3MF files, not raw meshes (Phase 4 risk) -- RESOLVED: bambu-lab-cloud-api works for cloud print; auto-slicing via BambuStudio CLI
-- [Research]: SolidPython2 + Claude code generation accuracy needs empirical testing (Phase 1) -- RESOLVED: raw OpenSCAD works well
+- MakerWorld Cloudflare protection intermittently blocks automated downloads (reported 2026-03-07)
+- bambu-lab-cloud-api is unofficial (v1.0.5) — may break with firmware updates
+- BambuStudio CLI headless slicing reliability is LOW confidence
 
 ## Session Continuity
 
 Last session: 2026-03-07
-Stopped at: Completed 04-02-PLAN.md -- All phases complete
-Resume file: None (project complete)
+Stopped at: v1.0 milestone completed and archived
+Resume file: None — start next milestone with /gsd:new-milestone
