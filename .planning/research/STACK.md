@@ -1,186 +1,257 @@
-# Stack Research
+# Stack Research: v2.0 Web Dashboard Additions
 
-**Domain:** Claude-powered 3D printing automation (MakerWorld scraping, OpenSCAD generation, 3MF export, BambuLab integration)
-**Researched:** 2026-03-05
-**Confidence:** MEDIUM-HIGH
+**Domain:** Web dashboard for Claude Code-backed 3D printing (React frontend, FastAPI backend, real-time communication)
+**Researched:** 2026-03-08
+**Confidence:** HIGH
+**Scope:** NEW technologies only. Existing v1.0 stack (OpenSCAD, Playwright, bambu-lab-cloud-api, Python scripts) is validated and unchanged.
 
 ## Recommended Stack
 
-### Language: Python
-
-Use Python. Rationale: Every critical library in this domain (SolidPython2, lib3mf, trimesh, bambulabs-api) is Python-native. OpenSCAD CLI integration is trivial from Python. The Claude Code skill layer is language-agnostic (bash scripts + SKILL.md). TypeScript has no equivalent ecosystem for CAD/mesh operations.
-
-### Core Technologies
+### Backend — Python (FastAPI + Claude Agent SDK)
 
 | Technology | Version | Purpose | Why Recommended | Confidence |
 |------------|---------|---------|-----------------|------------|
-| **Python** | 3.11+ | Runtime | All CAD/mesh/printer libraries are Python-first. 3.11+ for `tomllib` and performance. | HIGH |
-| **SolidPython2** | 2.1.3 | OpenSCAD code generation from Python | Most mature Python-to-OpenSCAD bridge. Generates .scad files programmatically using Python syntax (loops, variables, functions). Active development (last release Aug 2025). | HIGH |
-| **OpenSCAD** | 2025.08.17 | CSG rendering + export | CLI renders .scad to .stl/.3mf headlessly. Supports `openscad -o output.3mf input.scad` directly. Well-documented command-line interface. Must be installed as system dependency. | HIGH |
-| **lib3mf** | 2.4.1 | 3MF file creation/manipulation | Official 3MF Consortium library. Python bindings on PyPI. Creates 3MF files with mesh data, metadata, color. The standard for 3MF. | HIGH |
-| **trimesh** | 4.11.x | Mesh operations (scale, transform, validate) | Pure Python mesh library. Loads STL/3MF/OBJ. Handles scaling, transformations, boolean ops, watertight checks. Only hard dep is numpy. | HIGH |
-| **bambulabs-api** | 2.6.6 | BambuLab printer control via MQTT | Unofficial but most maintained Python API for BambuLab printers. Connects over local network (MQTT on port 8883). Can send 3MF print jobs, monitor status. | MEDIUM |
-| **httpx** | 0.28.x | HTTP client for MakerWorld scraping | Modern async-capable HTTP client. Replaces requests. Needed for MakerWorld API calls. | HIGH |
-| **BeautifulSoup4** | 4.12.x | HTML parsing for MakerWorld | Lightweight HTML parser for extracting model data from MakerWorld pages. Pair with httpx. | HIGH |
+| **FastAPI** | 0.135.x | HTTP + WebSocket server | Native WebSocket support via ASGI, async-first, Pydantic integration for typed messages. Matches existing Python codebase. | HIGH |
+| **uvicorn** | 0.34.x | ASGI server | Standard production server for FastAPI. Supports WebSocket upgrade out of the box. | HIGH |
+| **claude-agent-sdk** | 0.1.48 | Claude Code integration | Official Anthropic Python SDK. `ClaudeSDKClient` provides bidirectional conversation with session continuity, streaming responses, interrupt support, and in-process MCP server via `create_sdk_mcp_server()`. Replaces raw subprocess management. | HIGH |
+| **aiomqtt** | 2.5.1 | Async MQTT client | Wraps paho-mqtt with async/await. Needed to subscribe to BambuLab printer MQTT topics and relay status to browser via WebSocket. Only dependency is paho-mqtt. | HIGH |
+| **pydantic** | 2.x | Message/event validation | Already a FastAPI dependency. Use for typed WebSocket message schemas (chat messages, printer events, model updates). | HIGH |
+
+### Frontend — React + Vite + Three.js
+
+| Technology | Version | Purpose | Why Recommended | Confidence |
+|------------|---------|---------|-----------------|------------|
+| **React** | 19.x | UI framework | Latest stable. Required by @react-three/fiber v9. User knows React (Any-button project). | HIGH |
+| **Vite** | 6.x | Build tool + dev server | Fast HMR, TypeScript out of the box, `react-ts` template. Standard for new React projects. | HIGH |
+| **TypeScript** | 5.x | Type safety | Catches WebSocket message shape errors at build time. User preference (from CLAUDE.md). | HIGH |
+| **Three.js** | 0.183.x | 3D rendering engine | Built-in `STLLoader` and `ThreeMFLoader` in `three/addons/loaders/`. Both are official addons — no third-party viewer needed. | HIGH |
+| **@react-three/fiber** | 9.x | React renderer for Three.js | Declarative Three.js in JSX. `useLoader(STLLoader, url)` and `useLoader(ThreeMFLoader, url)` for loading models. Massive ecosystem (drei helpers). | HIGH |
+| **@react-three/drei** | 10.x | R3F helper components | `OrbitControls`, `Stage`, `Center`, `Grid` — all needed for a model viewer. Saves building camera controls from scratch. | HIGH |
+
+### MCP Server (Claude Code -> UI updates)
+
+| Technology | Version | Purpose | Why Recommended | Confidence |
+|------------|---------|---------|-----------------|------------|
+| **claude-agent-sdk** (built-in) | 0.1.48 | In-process MCP server | `create_sdk_mcp_server()` + `@tool` decorator defines MCP tools that Claude Code can call. Tools push events to FastAPI which relays to browser via WebSocket. No separate MCP server process needed. | HIGH |
+
+**Key insight:** The Claude Agent SDK bundles MCP server creation. You define Python functions as MCP tools, register them with `create_sdk_mcp_server()`, and pass to `ClaudeAgentOptions.mcp_servers`. When Claude calls a tool (e.g., `update_3d_preview`), your Python handler fires, pushes the update through FastAPI WebSocket to the browser. No `mcp` PyPI package needed separately.
 
 ### Supporting Libraries
 
 | Library | Version | Purpose | When to Use |
 |---------|---------|---------|-------------|
-| **numpy** | 1.26+ | Mesh math / trimesh dependency | Always (trimesh requires it) |
-| **Playwright** | 1.49+ | Browser automation for MakerWorld | Only if MakerWorld blocks httpx requests or requires JS rendering. Fallback, not default. |
-| **lxml** | 5.x | Fast XML/HTML parsing | If BS4 is too slow on large MakerWorld responses. Also needed by trimesh for 3MF/XML formats. |
-| **Pillow** | 10.x | Image processing for model thumbnails | When displaying/processing model preview images from MakerWorld |
-| **pydantic** | 2.x | Data validation for model configs | Validate OpenSCAD parameters, printer configs, search results |
-| **click** | 8.x | CLI interface | Phase 2 standalone app CLI. Not needed for Claude Code skill phase. |
+| **websockets** | 14.x | WebSocket protocol (FastAPI dep) | Installed automatically with FastAPI. No explicit install needed. |
+| **python-multipart** | 0.0.x | File upload parsing | When user uploads STL/3MF files through the web UI for preview or printing. |
+| **aiofiles** | 24.x | Async file I/O | Serving generated 3MF/STL files to the browser for Three.js preview. |
+| **zustand** | 5.x | React state management | Client-side state: chat messages, printer status, current model, WebSocket connection. User already knows zustand (Any-button). |
+| **react-hot-toast** | 2.x | Toast notifications | Print started/completed/failed notifications. Lightweight. |
 
 ### Development Tools
 
 | Tool | Purpose | Notes |
 |------|---------|-------|
-| **pip** | Package management | Small project scope. Poetry overkill for Phase 1. |
-| **pytest** | Testing | Test OpenSCAD generation, mesh operations, 3MF export |
-| **ruff** | Linting + formatting | Fast, replaces flake8 + black + isort |
-| **OpenSCAD (system)** | Rendering engine | Must be installed via `brew install openscad` on macOS |
+| **Vite** (dev server) | Frontend dev with HMR | Proxy `/api` and `/ws` to FastAPI backend in `vite.config.ts` |
+| **ruff** | Python linting + formatting | Already used in v1.0 |
+| **pytest** | Python testing | Test WebSocket handlers, MCP tool handlers, MQTT relay |
+| **vitest** | Frontend testing | Vite-native test runner, faster than Jest for Vite projects |
 
-### Claude Code Skill Layer
+## Architecture: How These Connect
 
-| Component | Implementation | Notes |
-|-----------|---------------|-------|
-| **SKILL.md** | `.claude/skills/3d-print/SKILL.md` | Skill entry point with description and instructions |
-| **Python scripts** | `.claude/skills/3d-print/scripts/` | Core Python modules called by skill |
-| **Bash wrappers** | `.claude/skills/3d-print/scripts/*.sh` | Thin wrappers Claude executes via `allowed-tools: Bash(python *)` |
-
-Skill structure:
 ```
-.claude/skills/3d-print/
-  SKILL.md              # Instructions for Claude
-  scripts/
-    search_models.py    # MakerWorld search
-    generate_scad.py    # OpenSCAD code generation
-    render_model.py     # OpenSCAD CLI rendering
-    export_3mf.py       # 3MF packaging
-    print_job.py        # BambuLab printer integration
+Browser (React + Three.js)
+  |
+  |-- WebSocket /ws/chat ---------> FastAPI
+  |                                    |
+  |                                    +-- ClaudeSDKClient (Agent SDK)
+  |                                    |     |
+  |                                    |     +-- MCP tools (in-process)
+  |                                    |           |
+  |                                    |           +-- update_preview(model_path)
+  |                                    |           +-- show_search_results(results)
+  |                                    |           +-- update_printer_status(status)
+  |                                    |           |
+  |                                    |           +-- Each tool handler pushes
+  |                                    |               event back through WebSocket
+  |                                    |
+  |-- WebSocket /ws/printer ------> FastAPI
+  |                                    |
+  |                                    +-- aiomqtt subscriber
+  |                                          |
+  |                                          +-- BambuLab printer (MQTT 8883)
+  |
+  |-- HTTP GET /api/models/:id ----> FastAPI
+  |     (serves .stl/.3mf files        |
+  |      for Three.js loader)          +-- Local filesystem
 ```
 
 ## Installation
 
 ```bash
-# System dependencies (macOS)
-brew install openscad
+# Backend (from project root)
+python -m venv .venv
+source .venv/bin/activate
 
-# Core Python dependencies
-pip install solidpython2 lib3mf trimesh numpy httpx beautifulsoup4 lxml
+# Core backend
+pip install fastapi uvicorn claude-agent-sdk aiomqtt pydantic
 
-# Printer integration
-pip install bambulabs-api
+# File handling
+pip install python-multipart aiofiles
 
-# Data validation
-pip install pydantic
-
-# Dev dependencies
+# Dev
 pip install pytest ruff
 
-# Optional: browser automation fallback for MakerWorld
-pip install playwright
-playwright install chromium
+# Frontend (from web/ directory)
+npm create vite@latest web -- --template react-swc-ts
+cd web
+npm install three @react-three/fiber @react-three/drei zustand react-hot-toast
+npm install -D @types/three vitest
 ```
 
 ## Alternatives Considered
 
-| Recommended | Alternative | When to Use Alternative |
-|-------------|-------------|-------------------------|
-| **SolidPython2** | **build123d** (BREP/OpenCascade) | When you need BREP modeling (fillets, chamfers, exact geometry). build123d is more powerful but heavier -- requires OpenCascade kernel compilation. SolidPython2 is simpler: generates .scad text, let OpenSCAD handle rendering. Better for LLM-generated code since output is readable text. |
-| **SolidPython2** | **CadQuery** | CadQuery is mature but complex. Same OpenCascade dependency issue. SolidPython2's text-based output is easier to debug and inspect. |
-| **SolidPython2** | **Raw OpenSCAD strings** | When models are simple enough (cube, cylinder). Avoids a dependency. But SolidPython2's Python API prevents syntax errors and enables parameterization. |
-| **httpx** | **requests** | Never. requests lacks async support, which matters when searching multiple MakerWorld pages. httpx is a drop-in replacement with async. |
-| **httpx + BS4** | **Scrapy** | When building a full crawling pipeline. Overkill for targeted MakerWorld search queries. |
-| **lib3mf** | **trimesh 3MF export** | trimesh can export 3MF but with fewer features. Use lib3mf for full 3MF spec compliance (metadata, colors, print settings). Use trimesh for mesh operations before passing to lib3mf. |
-| **bambulabs-api** | **bambu-connect** | bambu-connect is newer but less documented. bambulabs-api has more stars, examples, and active maintenance. |
-| **bambulabs-api** | **bambu-lab-cloud-api** | For cloud-based (not local network) printer access. Requires Bambu Lab account auth. Use when printer isn't on local network. |
-| **pip** | **Poetry** | When project grows to Phase 2 standalone app with many deps. Not needed for Phase 1 skill. |
+| Recommended | Alternative | Why Not |
+|-------------|-------------|---------|
+| **FastAPI** | Django Channels | Django is overkill — no ORM/admin/templates needed. FastAPI is lighter, async-native, better WebSocket DX. |
+| **FastAPI** | Flask + SocketIO | Flask-SocketIO uses polling fallback. FastAPI native WebSocket is cleaner and faster. |
+| **claude-agent-sdk** | Raw `subprocess.Popen` with stream-json | Agent SDK handles all subprocess lifecycle, message parsing, MCP integration, interrupts. Raw subprocess would require reimplementing all of this. |
+| **claude-agent-sdk** | Claude API directly (no Claude Code) | Loses all Claude Code capabilities: file editing, bash execution, tool use, skills. The whole point is Claude Code as the brain. |
+| **@react-three/fiber** | Raw Three.js | R3F gives declarative React components. Raw Three.js requires imperative scene management, manual cleanup, no React integration. |
+| **@react-three/fiber** | react-stl-viewer (npm) | Unmaintained (2+ years). Only supports STL, not 3MF. R3F with Three.js loaders handles both formats with full control. |
+| **aiomqtt** | paho-mqtt (sync) | paho-mqtt is callback-based and synchronous. aiomqtt wraps it for async/await, which is essential inside FastAPI's async event loop. |
+| **aiomqtt** | fastapi-mqtt | fastapi-mqtt is a thin wrapper. aiomqtt is more mature and doesn't couple MQTT to FastAPI lifecycle. |
+| **zustand** | Redux Toolkit | Zustand is simpler, less boilerplate, no providers. Perfect for medium-complexity state. User already uses it. |
+| **zustand** | React Context | Context causes re-renders on every update. WebSocket messages arrive frequently — zustand's selector-based updates prevent unnecessary re-renders. |
+| **Vite** | Next.js | No SSR needed. No routing complexity. Single-page dashboard with WebSocket. Vite is lighter and simpler. |
+| **react-swc-ts template** | react-ts template | SWC is faster than Babel for transpilation. Same output, faster builds. |
 
 ## What NOT to Use
 
 | Avoid | Why | Use Instead |
 |-------|-----|-------------|
-| **Selenium** | Heavy, slow, outdated for scraping. Playwright is faster with better API. | Playwright (only if JS rendering needed) |
-| **STL format** | BambuLab printers use 3MF natively. STL loses color, metadata, print settings. | 3MF via lib3mf |
-| **OpenPySCAD** | Abandoned (last update 2020). API incompatible with modern OpenSCAD. | SolidPython2 |
-| **solidpython** (v1) | Legacy. All development moved to solidpython2. | solidpython2 |
-| **FreeCAD Python** | Massive dependency, GUI-oriented. Overkill for programmatic model generation. | SolidPython2 + OpenSCAD CLI |
-| **Blender Python** | Even heavier than FreeCAD. Designed for artistic modeling, not parametric CAD. | SolidPython2 + OpenSCAD CLI |
-| **Node.js/TypeScript** | No equivalent ecosystem for CAD operations. Would require FFI bridges to C++ libs. | Python |
-| **Thingiverse API** | Thingiverse is deprecated/unreliable. MakerWorld is BambuLab's native platform. | MakerWorld scraping |
-
-## Stack Patterns by Variant
-
-**Phase 1 -- Claude Code Skill:**
-- Pure Python scripts in `.claude/skills/3d-print/scripts/`
-- No web framework, no database
-- Claude orchestrates via SKILL.md instructions
-- User interaction through natural language in Claude Code
-
-**Phase 2 -- Standalone CLI App:**
-- Add `click` for CLI interface
-- Add SQLite (via `sqlite3` stdlib) for caching MakerWorld results
-- Add `rich` for terminal UI
-- Consider Poetry for dependency management
-
-**Phase 2 -- Web App (if needed):**
-- Add FastAPI for API layer
-- Add React/Next.js frontend
-- Add PostgreSQL for persistent storage
-- This is a significant scope expansion -- only if CLI proves insufficient
+| **Socket.IO** | Adds unnecessary abstraction over WebSocket. FastAPI has native WebSocket support. Socket.IO's fallback to polling is not needed in 2026. | FastAPI native WebSocket |
+| **django-channels** | Pulls in Django ORM, migrations, admin. Massive overhead for a WebSocket relay server. | FastAPI |
+| **claude-code-sdk** (PyPI) | Deprecated. Superseded by `claude-agent-sdk`. | `claude-agent-sdk` |
+| **subprocess.Popen** for Claude | Manual process management, no MCP integration, no typed messages, no interrupt support. | `claude-agent-sdk` ClaudeSDKClient |
+| **react-3d-model-viewer** (npm) | Thin wrapper over Three.js, limited customization, small community. | @react-three/fiber + Three.js loaders directly |
+| **mqtt.js** (browser MQTT) | Would require exposing MQTT broker to internet or running a broker with WebSocket support. Security risk. | Backend MQTT relay via aiomqtt -> WebSocket |
+| **Separate MCP server process** | The `mcp` PyPI package runs as a separate stdio process. Unnecessary complexity when claude-agent-sdk has `create_sdk_mcp_server()` for in-process MCP. | claude-agent-sdk in-process MCP |
+| **PostgreSQL/SQLite** | No persistent data needed. Chat history lives in Claude Code session. Printer status is real-time. Models are files. | Filesystem + in-memory state |
 
 ## Version Compatibility
 
 | Package | Compatible With | Notes |
 |---------|-----------------|-------|
-| solidpython2 2.1.x | OpenSCAD 2021.01+ | Generates .scad syntax compatible with all recent OpenSCAD versions |
-| OpenSCAD 2025.08.17 | lib3mf (system) | OpenSCAD's 3MF export requires lib3mf at system level (bundled in brew install) |
-| trimesh 4.x | numpy 1.26+ | trimesh 4.x dropped numpy <1.26 support |
-| lib3mf 2.4.1 | Python 3.8+ | C++ bindings, works on macOS/Linux/Windows |
-| bambulabs-api 2.6.x | paho-mqtt 1.x/2.x | Uses MQTT for printer communication |
-| httpx 0.28.x | Python 3.8+ | No conflicts with other deps |
+| claude-agent-sdk 0.1.48 | Python 3.10+ | Bundles Claude Code CLI. Requires Claude Code to be installed (`npm install -g @anthropic-ai/claude-code`). |
+| FastAPI 0.135.x | Python 3.8+ | No conflicts with claude-agent-sdk. Both async-first. |
+| aiomqtt 2.5.1 | Python 3.8+, paho-mqtt 1.x/2.x | Compatible with existing bambu-lab-cloud-api which also uses paho-mqtt. |
+| @react-three/fiber 9.x | React 19.x, Three.js 0.160+ | Must pin React 19 and Three.js together. drei 10.x is compatible. |
+| Three.js 0.183.x | STLLoader, ThreeMFLoader | Both loaders are in `three/addons/loaders/` — no separate package needed. |
+| Vite 6.x | React 19.x, TypeScript 5.x | react-swc-ts template includes all config. |
 
 ## Critical Technical Notes
 
-### MakerWorld Scraping Strategy
-MakerWorld has no public API. Two approaches:
-1. **Reverse-engineer internal JSON API** (recommended): Inspect network traffic to find search/detail endpoints that return JSON. Likely `https://makerworld.com/api/...` endpoints. MEDIUM confidence this exists based on SPA architecture.
-2. **HTML scraping with httpx + BS4**: Fallback if no JSON API found. May need Playwright if content is JS-rendered.
-3. **Model download**: Models are typically .3mf or .stl files behind authenticated download URLs. May require session cookies.
+### Claude Agent SDK — The Core Integration
 
-**Risk:** MakerWorld may block automated access. Rate limiting and user-agent rotation may be needed. This is the highest-risk component of the stack.
+The `claude-agent-sdk` is the most important new dependency. It provides:
 
-### OpenSCAD as External Process
-SolidPython2 generates .scad text files. Rendering requires shelling out to `openscad` CLI:
+1. **ClaudeSDKClient** — Maintains a bidirectional conversation with Claude Code across multiple exchanges. Async context manager with `connect()`, `query()`, `receive_response()`, `interrupt()`.
+
+2. **In-process MCP server** — `create_sdk_mcp_server()` + `@tool` decorator. Define Python functions as MCP tools that Claude Code can call. This is how Claude Code pushes UI updates:
+
 ```python
-import subprocess
-subprocess.run(["openscad", "-o", "output.3mf", "input.scad"], check=True)
-```
-This is the standard pattern. OpenSCAD handles all CSG computation and mesh generation. Python never touches the geometry directly.
+from claude_agent_sdk import tool, create_sdk_mcp_server, ClaudeSDKClient, ClaudeAgentOptions
 
-### 3MF Pipeline
-Two paths to 3MF:
-1. **OpenSCAD direct**: `openscad -o output.3mf input.scad` -- simplest, use when generating new models
-2. **trimesh + lib3mf**: Load existing STL/3MF from MakerWorld, transform with trimesh, export with lib3mf -- use when modifying existing models
+@tool("update_preview", "Update the 3D preview in the browser", {"model_path": str})
+async def update_preview(args):
+    # Push update through WebSocket to browser
+    await websocket_manager.broadcast({"type": "preview_update", "path": args["model_path"]})
+    return {"content": [{"type": "text", "text": "Preview updated"}]}
+
+mcp_server = create_sdk_mcp_server("printer-ui", tools=[update_preview])
+
+options = ClaudeAgentOptions(
+    mcp_servers={"ui": mcp_server},
+    allowed_tools=["mcp__ui__update_preview", "Bash", "Read", "Write", "Edit"],
+    permission_mode="acceptEdits",
+    cwd="/path/to/project",
+)
+
+async with ClaudeSDKClient(options=options) as client:
+    await client.query("Generate a phone stand model")
+    async for message in client.receive_response():
+        # Stream Claude's text responses to browser via WebSocket
+        pass
+```
+
+3. **Custom permission handler** — `can_use_tool` callback controls which tools Claude can execute. Essential for sandboxing in a web-facing context.
+
+### Three.js 3MF Loading
+
+Three.js has a built-in `ThreeMFLoader` in addons. Import pattern:
+
+```typescript
+import { useLoader } from '@react-three/fiber'
+import { STLLoader } from 'three/addons/loaders/STLLoader.js'
+import { ThreeMFLoader } from 'three/addons/loaders/3MFLoader.js'
+
+// In component:
+const geometry = useLoader(STLLoader, '/api/models/phone-stand.stl')
+// or
+const group = useLoader(ThreeMFLoader, '/api/models/phone-stand.3mf')
+```
+
+The backend serves model files via HTTP GET. The frontend loads them with Three.js loaders. No file conversion needed.
+
+### MQTT Relay Pattern
+
+BambuLab printers publish status over MQTT (port 8883, TLS). The browser cannot connect directly (no TLS MQTT in browser, credentials exposure). Pattern:
+
+```python
+# Backend subscribes to printer MQTT, relays to browser WebSocket
+async def mqtt_relay(websocket_manager):
+    async with aiomqtt.Client(
+        hostname=printer_ip,
+        port=8883,
+        tls_context=ssl_context,
+        username="bblp",
+        password=access_code,
+    ) as client:
+        await client.subscribe(f"device/{serial}/report")
+        async for message in client.messages:
+            status = parse_bambu_status(message.payload)
+            await websocket_manager.broadcast({"type": "printer_status", **status})
+```
+
+### WebSocket Message Protocol
+
+Two WebSocket endpoints, typed with Pydantic:
+
+```python
+# /ws/chat — User <-> Claude Code conversation
+class ChatMessage(BaseModel):
+    type: Literal["user_message", "assistant_message", "tool_use", "preview_update", "search_results"]
+    content: str | dict
+
+# /ws/printer — Real-time printer status
+class PrinterEvent(BaseModel):
+    type: Literal["status", "progress", "temperature", "error"]
+    data: dict
+```
 
 ## Sources
 
-- [SolidPython2 PyPI](https://pypi.org/project/solidpython2/) -- version 2.1.3, last updated Aug 2025
-- [lib3mf PyPI](https://pypi.org/project/lib3mf/) -- version 2.4.1, official 3MF Consortium
-- [lib3mf docs](https://lib3mf.readthedocs.io/) -- v2.5.0 docs available
-- [trimesh GitHub](https://github.com/mikedh/trimesh) -- v4.11.2, actively maintained
-- [bambulabs-api PyPI](https://pypi.org/project/bambulabs-api/) -- v2.6.6, unofficial BambuLab API
-- [bambulabs-api GitHub](https://github.com/BambuTools/bambulabs_api) -- examples and docs
-- [OpenSCAD CLI docs](https://en.wikibooks.org/wiki/OpenSCAD_User_Manual/Using_OpenSCAD_in_a_command_line_environment) -- command-line usage
-- [OpenSCAD releases](https://github.com/openscad/openscad/releases) -- 2025.08.17 with 3MF export
-- [Claude Code Skills docs](https://code.claude.com/docs/en/skills) -- skill structure and frontmatter
-- [MakerWorld Apify scrapers](https://apify.com/stealth_mode/makerworld-models-details-scraper) -- confirms scraping is feasible
-- [build123d docs](https://build123d.readthedocs.io/) -- BREP alternative considered
+- [Claude Agent SDK Python Reference](https://platform.claude.com/docs/en/agent-sdk/python) -- ClaudeSDKClient API, MCP server creation, tool decorator (HIGH confidence)
+- [claude-agent-sdk PyPI](https://pypi.org/project/claude-agent-sdk/) -- v0.1.48, March 7 2026 (HIGH confidence)
+- [Claude Code CLI Reference](https://code.claude.com/docs/en/cli-reference) -- stream-json flags, MCP config (HIGH confidence)
+- [FastAPI WebSocket docs](https://fastapi.tiangolo.com/advanced/websockets/) -- native WebSocket support (HIGH confidence)
+- [Three.js ThreeMFLoader docs](https://threejs.org/docs/pages/ThreeMFLoader.html) -- built-in 3MF support (HIGH confidence)
+- [Three.js STLLoader docs](https://threejs.org/docs/pages/STLLoader.html) -- built-in STL support (HIGH confidence)
+- [React Three Fiber docs](https://r3f.docs.pmnd.rs/) -- v9, useLoader pattern (HIGH confidence)
+- [@react-three/drei npm](https://www.npmjs.com/package/@react-three/drei) -- v10.7.7 (HIGH confidence)
+- [aiomqtt PyPI](https://pypi.org/project/aiomqtt/) -- v2.5.1, async MQTT client (HIGH confidence)
+- [MCP Python SDK](https://pypi.org/project/mcp/) -- v1.26.0, referenced by claude-agent-sdk internally (MEDIUM confidence)
+- [Three.js npm](https://www.npmjs.com/package/three) -- v0.183.2 (HIGH confidence)
 
 ---
-*Stack research for: Claude-powered BambuLab 3D printing automation*
-*Researched: 2026-03-05*
+*Stack research for: v2.0 Web Dashboard — Claude BambuLab Printer Interface*
+*Researched: 2026-03-08*

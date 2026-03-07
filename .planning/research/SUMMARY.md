@@ -1,158 +1,186 @@
 # Project Research Summary
 
-**Project:** Claude-powered BambuLab 3D Printing Automation
-**Domain:** AI-assisted CAD/3D printing tooling (Claude Code skill)
-**Researched:** 2026-03-05
-**Confidence:** MEDIUM-HIGH
+**Project:** Claude BambuLab Printer Interface -- v2.0 Web Dashboard
+**Domain:** Web dashboard for AI-powered 3D printing (CLI-to-web migration)
+**Researched:** 2026-03-08
+**Confidence:** HIGH
 
 ## Executive Summary
 
-This project is a Claude Code skill that lets users search MakerWorld for existing 3D models, generate new parametric models via natural language, and prepare them for printing on BambuLab printers. The expert approach is a modular Python script architecture where Claude acts as the orchestrator -- reading a SKILL.md for instructions, then calling discrete Python scripts (search, generate, render, transform, export, print) based on user intent. The entire CAD pipeline is Python-native: SolidPython2 generates OpenSCAD code, OpenSCAD CLI renders meshes, trimesh validates/transforms geometry, and lib3mf packages the final 3MF files.
+The v2.0 web dashboard layers a React + Three.js frontend and FastAPI backend on top of the proven v1.0 CLI skill. The core integration is the Claude Agent SDK (`claude-agent-sdk`), which manages Claude Code as a persistent subprocess with session continuity, streaming responses, and in-process MCP tools that push UI updates (3D preview, search results, status messages) to the browser via WebSocket. A separate MQTT bridge relays real-time printer status from BambuLab's cloud. The existing v1.0 scripts (printer_control.py, makerworld_search.py, OpenSCAD generation) remain completely unchanged -- Claude Code wraps them as it does today, just with a web frontend instead of a terminal.
 
-The recommended approach is to build this as a Claude Code skill first (Phase 1), not a standalone app. Each capability lives in its own Python script under `.claude/skills/3d-print/scripts/`. Claude reads SKILL.md, understands what the user wants, and chains the right scripts together. This keeps the architecture simple, composable, and testable. The stack is mature -- SolidPython2, OpenSCAD, trimesh, and lib3mf are all well-maintained with high confidence. The main uncertainty is bambulabs-api (unofficial) and MakerWorld scraping (no public API, anti-bot protections).
+The recommended approach is a strict dependency-driven build order: start with the FastAPI + WebSocket + subprocess foundation (solving session isolation, process lifecycle, and disconnect handling up front), then add the chat UI and Claude Code integration, then 3D preview via MCP push, then MQTT monitoring. The research is clear that the foundation phase is load-bearing -- every critical pitfall (zombie processes, pipe deadlocks, global state bleed, silent WebSocket drops) lives in this layer. Getting it wrong means rebuilding everything on top.
 
-The two highest risks are: (1) MakerWorld blocking automated access, which would break the search feature entirely -- mitigate with aggressive caching, internal JSON API reverse-engineering, and graceful fallback to manual search; (2) Claude generating invalid SolidPython2 code -- mitigate with API reference in SKILL.md, output validation after every render, and known-good templates for common shapes. A critical constraint is that BambuLab printers need **sliced** 3MF files (not raw meshes), so Phase 1 must export raw 3MF and tell users to slice in BambuStudio. Direct print submission requires sliced files, making printer integration a Phase 2+ concern.
+The primary risks are Claude Code subprocess memory leaks (documented up to 120GB in long sessions) and the MQTT bridge's thread-to-asyncio synchronization. Both are manageable with proper lifecycle management and the patterns documented in the architecture research. A secondary risk is BambuStudio CLI headless slicing reliability (LOW confidence) -- OrcaSlicer CLI is the recommended fallback.
 
 ## Key Findings
 
 ### Recommended Stack
 
-Python is the only viable language -- every critical library (SolidPython2, lib3mf, trimesh, bambulabs-api) is Python-native. TypeScript has no equivalent CAD/mesh ecosystem. pip is sufficient for Phase 1; no need for Poetry yet.
+The stack splits cleanly: Python backend (FastAPI + claude-agent-sdk + aiomqtt) and TypeScript frontend (React 19 + Vite 6 + Three.js/R3F). No database needed -- chat is session-scoped, printer status is real-time, models are files. The claude-agent-sdk is the most critical new dependency, providing `ClaudeSDKClient` for persistent subprocess management and `create_sdk_mcp_server()` for in-process MCP tools.
 
 **Core technologies:**
-- **SolidPython2** (2.1.3): Python-to-OpenSCAD bridge -- generates readable .scad text, ideal for LLM code generation
-- **OpenSCAD** (2025.08+): System dependency for CSG rendering -- called via CLI subprocess, handles all geometry computation
-- **lib3mf** (2.4.1): Official 3MF Consortium library -- full spec compliance for packaging mesh + metadata
-- **trimesh** (4.11.x): Mesh operations -- scale, transform, validate watertight, repair common issues
-- **httpx + BeautifulSoup4**: MakerWorld scraping -- async HTTP client + HTML parser, with Playwright as JS-rendering fallback
-- **bambulabs-api** (2.6.6): BambuLab printer control via local MQTT -- unofficial but most maintained option
-
-**Critical version note:** OpenSCAD 2025.08+ required for native 3MF export. Must be installed via `brew install openscad` (system dependency, not pip).
+- **FastAPI + uvicorn**: HTTP + WebSocket server -- async-first, native WebSocket, Pydantic integration
+- **claude-agent-sdk 0.1.48**: Claude Code subprocess lifecycle, streaming, in-process MCP server -- replaces raw subprocess management
+- **aiomqtt 2.5.1**: Async MQTT client for BambuLab printer status -- wraps paho-mqtt for asyncio compatibility
+- **React 19 + Vite 6**: Frontend SPA -- fast HMR, TypeScript, familiar to the developer
+- **Three.js 0.183 + @react-three/fiber 9**: 3D model viewing -- built-in STLLoader and ThreeMFLoader, declarative React components
+- **zustand 5**: Client state management -- selector-based updates prevent re-renders from frequent WebSocket messages
 
 ### Expected Features
 
 **Must have (table stakes):**
-- Natural language model search on MakerWorld
-- Generate simple parametric models ("make a box 10x5x3cm")
-- Export to 3MF format
-- Scale/resize models
+- Chat input with streaming response (core interaction model)
+- 3D model viewer with auto-updating preview (visual proof of generation)
+- Print job controls (start/pause/cancel) -- regression if missing
+- Printer connection status and print progress bar
+- MakerWorld search results as visual card grid
+- Session-scoped chat history
 
 **Should have (differentiators):**
-- AI-driven model generation (Claude writes SolidPython2 geometry code)
-- Print settings recommendations
-- Model parameter tweaking on parametric models
-- Batch search with comparison
+- Live temperature gauges via MQTT
+- Contextual action buttons in chat messages (Print, Scale, Modify)
+- MakerWorld split-view with 3D preview of selected model
+- AMS/filament status display
+- Print settings recommendation with visual feedback
 
-**Defer (v2+):**
-- Print job submission (requires sliced 3MF, physical printer testing)
-- Model modification from description (requires understanding existing .scad structure)
-- Multi-model composition (complex boolean operations)
-- Printer status monitoring
+**Defer (v3+):**
+- Print queue (high complexity, unclear demand)
+- Multi-printer management
+- Persistent chat history across sessions
+- Webcam/camera feed
 
 ### Architecture Approach
 
-Claude Code skill with script-per-action pattern. Each Python script handles exactly one operation (search, generate, render, transform, export, print). Claude orchestrates by reading SKILL.md and calling scripts sequentially based on user intent. Scripts communicate via JSON on stdin/stdout. Printer credentials live in `~/.config/bambulab/config.json`.
+Six components with clear boundaries: React Frontend, FastAPI Server (WebSocket hub), ClaudeManager (subprocess lifecycle), in-process MCP Server (UI update tools), MQTTBridge (printer status relay), and the unchanged v1.0 scripts. Two separate WebSocket endpoints -- `/ws` for chat/UI updates and `/ws/printer` for high-frequency MQTT status -- prevent backpressure issues. The MCP tools use closures to access WebSocket connections directly, avoiding cross-process communication.
 
 **Major components:**
-1. **SKILL.md** -- instructs Claude on when and how to use each script
-2. **search_models.py** -- queries MakerWorld, returns structured JSON results
-3. **generate_scad.py** -- Claude writes SolidPython2 code, script renders to .scad
-4. **render_model.py** -- shells out to OpenSCAD CLI, produces .stl/.3mf
-5. **transform_model.py** -- trimesh operations (scale, rotate, validate, repair)
-6. **export_3mf.py** -- lib3mf packaging with metadata
-7. **print_job.py** -- bambulabs-api MQTT integration (Phase 2)
+1. **FastAPI Backend** -- Central hub: WebSocket management, session lifecycle, file serving
+2. **ClaudeManager** -- One ClaudeSDKClient per browser session with streaming and interrupt support
+3. **MCP Server (in-process)** -- Tools Claude Code calls to push preview updates, search results, status messages, and confirmation dialogs to the browser
+4. **MQTTBridge** -- Persistent MQTT connection in daemon thread, bridged to asyncio via `run_coroutine_threadsafe()`
+5. **React Frontend** -- Chat panel, Three.js 3D preview, printer status, search results
+6. **v1.0 Scripts** -- Unchanged CLI tools that Claude Code wraps via Bash
 
 ### Critical Pitfalls
 
-1. **MakerWorld blocks automated access** -- Reverse-engineer internal JSON API first, rate-limit to 1-2 req/s, cache results 24h+, degrade gracefully to manual search suggestions
-2. **OpenSCAD not installed** -- Fail fast with clear error on skill init, check `openscad --version`, document brew install prominently
-3. **Non-watertight meshes fail to print** -- Validate with `mesh.is_watertight` after every render/transform, auto-repair with trimesh
-4. **Claude generates invalid SolidPython2** -- Include API cheatsheet in SKILL.md, validate render output, catch OpenSCAD errors for self-correction, maintain template library
-5. **Raw vs sliced 3MF confusion** -- Phase 1 exports raw 3MF only, user slices in BambuStudio; direct printing requires sliced 3MF (Phase 2 with OrcaSlicer CLI)
+1. **Zombie Claude Code subprocesses** -- Orphaned processes consume ~45MB each and can grow to 120GB+. Use `async with` context manager, implement a process reaper, set 30-minute session timeouts, track PIDs in a registry.
+2. **Stdin/stdout pipe deadlock** -- Large messages in both directions fill OS pipe buffers (16KB on macOS). Use the claude-agent-sdk (handles this internally), never roll custom pipe management. Add 30-second per-message timeouts.
+3. **Global state bleed between sessions** -- v1.0 scripts write to fixed paths. Create per-session workspace directories (`/tmp/bambu-dashboard/{session_id}/`), set each subprocess's `cwd` to its workspace.
+4. **Silent WebSocket disconnects** -- Backend doesn't detect browser disconnects for minutes. Implement 15-second ping/pong heartbeat, run WebSocket read and subprocess read as concurrent asyncio tasks, clean up resources on disconnect.
+5. **Three.js 3MF loader failures** -- Large or non-standard 3MF files crash the browser. Convert to binary STL on the backend for preview (keep 3MF for printing). Set 10MB file size limits for browser loading.
 
 ## Implications for Roadmap
 
 Based on research, suggested phase structure:
 
-### Phase 1: Skill Foundation + Model Generation
-**Rationale:** Model generation is self-contained (no external API risk), proves the core value prop, and establishes the skill architecture.
-**Delivers:** Working Claude Code skill that generates parametric 3D models from natural language and exports 3MF files.
-**Addresses:** Generate simple parametric models, export to 3MF, scale/resize models.
-**Avoids:** MakerWorld scraping risk (deferred). Printer integration complexity (deferred).
-**Stack:** SolidPython2, OpenSCAD CLI, trimesh, lib3mf, SKILL.md + script-per-action pattern.
+### Phase 1: Backend Foundation + WebSocket Infrastructure
 
-### Phase 2: MakerWorld Search + Download
-**Rationale:** Search depends on reverse-engineering MakerWorld's internal API -- highest-risk component. Isolating it lets Phase 1 ship independently.
-**Delivers:** Natural language search for existing models on MakerWorld, download, and transform pipeline.
-**Addresses:** Natural language model search, model preview/info, download existing model, batch search.
-**Avoids:** Anti-bot blocking (via caching + rate limiting + fallback strategy).
-**Stack:** httpx, BeautifulSoup4, possibly Playwright as fallback.
+**Rationale:** All four critical pitfalls (#1-#4) live in this layer. The entire dashboard depends on reliable subprocess management and WebSocket communication. Nothing else can be built or tested without this.
+**Delivers:** FastAPI server with WebSocket endpoint, session isolation (per-session workspaces), ClaudeManager with proper lifecycle (connect, disconnect, interrupt, cleanup), ConnectionManager with heartbeat ping/pong, health check endpoint.
+**Addresses:** Printer connection status (table stakes), session-scoped state management.
+**Avoids:** Zombie processes (pitfall #1), pipe deadlock (pitfall #2), state bleed (pitfall #3), silent disconnects (pitfall #4).
 
-### Phase 3: Printer Integration
-**Rationale:** Requires physical printer for testing, network configuration, and sliced 3MF files. Least risky to defer -- users can manually print via BambuStudio until this ships.
-**Delivers:** Direct print job submission from Claude Code, printer status monitoring.
-**Addresses:** Print job submission, printer status monitoring, print settings recommendation.
-**Avoids:** Raw vs sliced 3MF confusion (by this phase, pipeline is proven). Network connectivity issues (connection test script).
-**Stack:** bambulabs-api, config.py for credentials.
+### Phase 2: Chat Interface + Claude Code Streaming
 
-### Phase 4: Advanced Model Operations
-**Rationale:** Requires mature understanding of model structure. Builds on proven Phase 1-3 foundation.
-**Delivers:** Model modification, multi-model composition, advanced parametric tweaking.
-**Addresses:** Model modification from description, multi-model composition, model parameter tweaking.
+**Rationale:** Once the subprocess foundation is stable, add the primary user interaction. Chat is the entry point for everything -- model generation, search, printing. Streaming text is a table-stakes expectation.
+**Delivers:** React chat panel with streaming response display, message routing between browser and Claude Code, interrupt support (cancel button), basic layout skeleton.
+**Addresses:** Chat input with streaming response (table stakes), chat history in session (table stakes).
+**Uses:** ClaudeSDKClient with `include_partial_messages=True`, zustand for message state.
+
+### Phase 3: MCP Server + 3D Preview
+
+**Rationale:** The "wow moment" -- user types a prompt, a 3D model appears in the browser. Depends on Phase 2 (Claude Code must be working) and the MCP tool mechanism for push updates. This is the core differentiator.
+**Delivers:** In-process MCP server with `update_preview`, `update_status`, `show_search_results`, `request_confirmation` tools. Three.js viewer with STL loading, auto-update on MCP events, orbit controls, Z-up to Y-up correction, cache-busting URLs.
+**Addresses:** 3D model viewer (table stakes), auto-updating preview (table stakes), inline model modification (differentiator).
+**Avoids:** 3MF loader failures (pitfall #5) by using STL for preview. Event loop blocking (pitfall #7) by keeping MCP handlers thin.
+
+### Phase 4: Print Controls + Confirmation Flow
+
+**Rationale:** With chat and preview working, add the ability to actually send prints. Needs the `request_confirmation` MCP tool from Phase 3 for the "Send to printer?" dialog.
+**Delivers:** Print start/pause/cancel buttons, confirmation dialog component, print status display, basic error handling for print failures.
+**Addresses:** Print job controls (table stakes), model download + print flow (table stakes).
+
+### Phase 5: MQTT Printer Monitoring
+
+**Rationale:** Independent of the Claude Code chain -- can be built in parallel with Phase 3/4 if resources allow. Adds real-time monitoring that makes the dashboard feel like a complete tool.
+**Delivers:** MQTTBridge with daemon thread, printer status WebSocket endpoint (`/ws/printer`), live progress bar, temperature gauges, layer count, AMS/filament status.
+**Addresses:** Print progress bar (table stakes), live temperature gauges (differentiator), AMS/filament status (differentiator).
+**Avoids:** MQTT message drops/duplicates (pitfall #6) via unique client IDs, QoS 0, frontend dedup.
+
+### Phase 6: MakerWorld Search UI
+
+**Rationale:** Depends on the `show_search_results` MCP tool (Phase 3). Transforms text search results into a visual browsing experience.
+**Delivers:** Card grid with thumbnails, model details. Contextual action buttons (Download, Preview, Print). Server-side search cache with rate limiting.
+**Addresses:** MakerWorld search results display (table stakes), contextual actions in chat (differentiator).
+**Avoids:** Increased Cloudflare blocking (pitfall #13) via caching and rate limiting.
+
+### Phase 7: Polish + Split-View
+
+**Rationale:** All core functionality is in place. This phase enhances the MakerWorld experience and adds visual polish.
+**Delivers:** MakerWorld split-view (card grid + 3D preview of selected model), print settings visual editor, responsive layout refinements, toast notifications for print events.
+**Addresses:** MakerWorld split-view (differentiator), print settings recommendation (differentiator), responsive layout (table stakes).
 
 ### Phase Ordering Rationale
 
-- Phase 1 first because it has zero external dependencies (no network APIs, no hardware) and establishes the entire skill architecture pattern that all later phases plug into.
-- Phase 2 second because MakerWorld scraping is the highest-risk unknown -- isolating it means failure here does not block model generation.
-- Phase 3 third because printer integration requires physical testing and the raw-vs-sliced 3MF distinction means the pipeline must be proven before adding direct printing.
-- Phase 4 last because advanced model operations are differentiators, not table stakes -- they layer on top of working generation and search.
+- **Phases 1-3 are strictly sequential** -- each depends on the previous. No parallelization possible.
+- **Phase 4 depends on Phase 3** (MCP confirmation tool) but is small.
+- **Phase 5 is independent** of Phases 3-4 and can be parallelized if desired.
+- **Phase 6 depends on Phase 3** (MCP search results tool) but not on Phase 5.
+- **Phase 7 depends on Phase 6** (extends MakerWorld UI).
+- The critical path is: Phase 1 -> 2 -> 3 -> 6 -> 7. Phases 4 and 5 branch off after Phase 3 and Phase 1 respectively.
 
 ### Research Flags
 
 Phases likely needing deeper research during planning:
-- **Phase 2 (MakerWorld):** Needs hands-on API reverse-engineering. No documentation exists. Anti-bot protections are confirmed. Research-phase required.
-- **Phase 3 (Printer):** bambulabs-api is unofficial with MEDIUM confidence. Sliced 3MF requirements need validation. Research-phase recommended.
+- **Phase 1:** Claude Agent SDK subprocess lifecycle details -- verify `ClaudeSDKClient` cleanup behavior on unexpected disconnect. The SDK's Transport class is marked "low-level internal API."
+- **Phase 3:** Three.js + OpenSCAD output compatibility -- verify ThreeMFLoader/STLLoader works with OpenSCAD-generated files. May need to test early.
+- **Phase 5:** bambu-lab-cloud-api MQTT long-running connection stability -- the library's internal reconnection behavior is not fully documented.
 
 Phases with standard patterns (skip research-phase):
-- **Phase 1 (Model Generation):** SolidPython2 + OpenSCAD is well-documented with HIGH confidence. Standard subprocess pattern.
-- **Phase 4 (Advanced Operations):** trimesh boolean ops are documented. Can research during implementation.
+- **Phase 2:** Streaming chat UI is well-documented (ChatGPT, AI SDK patterns). Standard WebSocket + React.
+- **Phase 4:** Print controls are thin wrappers around existing Python functions. Straightforward.
+- **Phase 6:** Card grid UI is standard React. Search caching is a solved problem.
+- **Phase 7:** Split-view layout is standard CSS/React. No novel technical challenges.
 
 ## Confidence Assessment
 
 | Area | Confidence | Notes |
 |------|------------|-------|
-| Stack | HIGH | All core libraries verified on PyPI with recent releases. Well-established ecosystem. |
-| Features | MEDIUM-HIGH | Feature set is clear from domain analysis. MVP scope is well-defined. |
-| Architecture | HIGH | Script-per-action with Claude as orchestrator is the documented Claude Code skill pattern. |
-| Pitfalls | MEDIUM | MakerWorld risk is real but mitigation strategies are sound. Printer integration pitfalls need hardware validation. |
+| Stack | HIGH | All technologies have official docs, verified versions, confirmed compatibility. claude-agent-sdk is the newest but has official Anthropic documentation. |
+| Features | HIGH | Clear table-stakes vs. differentiator distinction. Competitive landscape well-mapped against OctoPrint, Fluidd, Mainsail, Bambu Studio. |
+| Architecture | HIGH | Patterns are well-documented (FastAPI WebSocket, in-process MCP, streaming). Only MEDIUM confidence on MQTT bridge threading. |
+| Pitfalls | HIGH | Critical pitfalls backed by specific GitHub issues with documented reproductions. Prevention strategies are concrete. |
 
-**Overall confidence:** MEDIUM-HIGH
+**Overall confidence:** HIGH
 
 ### Gaps to Address
 
-- **MakerWorld API structure:** No documentation exists. Must be reverse-engineered from browser DevTools during Phase 2 planning. This is the single biggest unknown.
-- **Sliced 3MF creation:** bambulabs-api requires sliced 3MF. Whether OrcaSlicer CLI can automate slicing needs validation before Phase 3.
-- **bambulabs-api stability:** Unofficial library. API may change with printer firmware updates. Need to assess maintenance cadence.
-- **SolidPython2 + Claude accuracy:** How reliably Claude generates valid SolidPython2 code needs empirical testing in Phase 1. Template library scope TBD.
+- **BambuStudio CLI headless slicing reliability (LOW confidence):** Flagged in v1.0 research. If automated slicing fails, the print-from-dashboard flow breaks. Validate early or commit to OrcaSlicer CLI as fallback. Not blocking any phase directly -- slicing is handled by existing v1.0 scripts.
+- **claude-agent-sdk Transport API stability:** The SDK's internal Transport class may change between versions. Pin to 0.1.48 and avoid using internal APIs. Monitor for breaking changes.
+- **OpenSCAD output file compatibility with Three.js loaders:** Need to test actual OpenSCAD-generated STL/3MF files in the Three.js viewer early in Phase 3. STL is the safer format for preview.
+- **MQTT token expiry handling:** BambuLab JWT tokens expire after ~24h. The MQTT bridge needs auto-reconnection with token refresh. This is an existing v1.0 problem that becomes more visible in a persistent web dashboard.
 
 ## Sources
 
 ### Primary (HIGH confidence)
-- [SolidPython2 PyPI](https://pypi.org/project/solidpython2/) -- v2.1.3, API and usage
-- [lib3mf docs](https://lib3mf.readthedocs.io/) -- v2.5.0 docs, 3MF spec compliance
-- [trimesh GitHub](https://github.com/mikedh/trimesh) -- v4.11.2, mesh operations API
-- [OpenSCAD CLI docs](https://en.wikibooks.org/wiki/OpenSCAD_User_Manual/Using_OpenSCAD_in_a_command_line_environment) -- command-line rendering
-- [Claude Code Skills docs](https://code.claude.com/docs/en/skills) -- skill structure and frontmatter
+- [Claude Agent SDK Python Reference](https://platform.claude.com/docs/en/agent-sdk/python) -- ClaudeSDKClient, MCP server creation, tool decorator
+- [claude-agent-sdk PyPI v0.1.48](https://pypi.org/project/claude-agent-sdk/) -- latest version, March 2026
+- [FastAPI WebSocket docs](https://fastapi.tiangolo.com/advanced/websockets/) -- native WebSocket patterns
+- [Three.js STLLoader/ThreeMFLoader](https://threejs.org/docs/) -- built-in 3D format support
+- [React Three Fiber v9 docs](https://r3f.docs.pmnd.rs/) -- useLoader pattern, declarative Three.js
+- [Claude Code memory leak issues](https://github.com/anthropics/claude-code/issues/4953) -- subprocess lifecycle risks
 
 ### Secondary (MEDIUM confidence)
-- [bambulabs-api GitHub](https://github.com/BambuTools/bambulabs_api) -- v2.6.6, printer integration examples
-- [MakerWorld Apify scrapers](https://apify.com/stealth_mode/makerworld-models-details-scraper) -- confirms scraping feasibility and anti-bot protections
-- [build123d docs](https://build123d.readthedocs.io/) -- BREP alternative considered and rejected
+- [aiomqtt v2.5.1](https://pypi.org/project/aiomqtt/) -- async MQTT client
+- [bambu-lab-cloud-api](https://pypi.org/project/bambu-lab-cloud-api/) -- unofficial BambuLab library
+- [OpenBambuAPI MQTT protocol](https://github.com/Doridian/OpenBambuAPI/blob/main/mqtt.md) -- MQTT topic structure
+- [Inside the Claude Agent SDK](https://buildwithaws.substack.com/p/inside-the-claude-agent-sdk-from) -- subprocess architecture details
 
 ### Tertiary (LOW confidence)
-- MakerWorld internal API structure -- inferred from SPA architecture, needs hands-on validation
-- OrcaSlicer CLI slicing capabilities -- not yet researched, needed for Phase 3
+- BambuStudio CLI headless slicing -- needs validation, no official documentation
+- Three.js 3MFLoader compatibility with OpenSCAD output -- needs testing
 
 ---
-*Research completed: 2026-03-05*
+*Research completed: 2026-03-08*
 *Ready for roadmap: yes*
