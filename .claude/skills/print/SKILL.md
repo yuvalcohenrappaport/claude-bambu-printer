@@ -2,17 +2,16 @@
 name: print
 description: >
   Generate 3D printable models from natural language descriptions,
-  or search MakerWorld for existing models to download.
+  search MakerWorld for existing models, and send files to BambuLab printers.
   Use when the user wants to 3D print something, create a model,
-  design a part, find an existing model, or download from MakerWorld.
-  Handles OpenSCAD code generation, preview rendering, 3MF export,
-  and MakerWorld search/download.
+  design a part, find an existing model, download from MakerWorld,
+  send to printer, check print status, or control a running print.
 allowed-tools: Bash, Read, Write, Glob, Grep
 ---
 
 # 3D Print Model Generator
 
-Generate print-ready 3MF files from natural language descriptions using OpenSCAD, or search MakerWorld for existing models to download.
+Generate print-ready 3MF files from natural language descriptions using OpenSCAD, search MakerWorld for existing models to download, and send files to BambuLab printers.
 
 **IMPORTANT RULES -- follow these without exception:**
 - Do NOT skip the clarification step. Always ask about dimensions, use case, and material first.
@@ -20,16 +19,25 @@ Generate print-ready 3MF files from natural language descriptions using OpenSCAD
 - Do NOT generate code without asking about dimensions, use case, and material first.
 - Do NOT proceed with generation until OpenSCAD is confirmed installed.
 - Do NOT auto-download models from MakerWorld. Always ask the user to confirm their selection first.
+- Do NOT send to printer without showing confirmation summary first.
+- Do NOT cancel a print without user confirmation.
+- Do NOT auto-setup printer. Always ask user before running setup flow.
 
 ## Step 0: Detect Intent
 
-Before anything else, determine whether the user wants to **search for an existing model** or **generate a new one**.
+Before anything else, determine whether the user wants to **search for an existing model**, **generate a new one**, or **interact with their printer**.
 
 **Search indicators** (trigger search flow -- Steps S1-S3):
 - "find", "search", "look for", "download", "get me", "existing", "browse", "MakerWorld", "from makerworld"
 
 **Generate indicators** (trigger generation flow -- Steps 1-12):
 - "make", "create", "generate", "design", "build", "print me"
+
+**Printer indicators** (trigger printer flow -- Steps P1-P5):
+- "send to printer", "print this", "start printing", "send to bambu", "print it"
+- "printer status", "how's the print", "check printer", "print progress"
+- "pause print", "resume print", "cancel print", "stop print"
+- "setup printer", "connect printer", "configure printer"
 
 **Ambiguous** (neither set of indicators is clearly present, or both are present):
 - Ask: "Would you like me to search MakerWorld for an existing model, or generate a custom one from scratch?"
@@ -38,6 +46,7 @@ Before anything else, determine whether the user wants to **search for an existi
 **Routing:**
 - Search intent detected --> go to **Step S1** (search flow).
 - Generate intent detected --> go to **Step 1** (generation flow, unchanged).
+- Printer intent detected --> go to **Step P1** (printer flow).
 
 ---
 
@@ -322,16 +331,165 @@ After successful render and export, present a summary to the user:
 
 6. **Print settings**: If Step 12 was applied, include the recommended print settings in the summary (purpose, key parameters, and the BambuStudio equivalent preset name).
 
-## Step 8: Offer BambuStudio
+## Step 8: Offer BambuStudio or Send to Printer
 
 After showing the summary, ask:
 
-> "Want me to open this in BambuStudio?"
+```
+What would you like to do next?
+1. Open in BambuStudio (for manual slicing and printing)
+2. Send directly to your printer (cloud print)
+3. Done for now
+```
 
-- **If yes**: `open -a BambuStudio "$OUTPUT_DIR/model.3mf"`
-- **If no**: Done. Remind the user where the files are saved.
+- **If option 1**: `open -a BambuStudio "$OUTPUT_DIR/model.3mf"`
+- **If option 2**: go to **Step P2** (confirm print) with the current 3MF file.
+- **If option 3**: Done. Remind the user where the files are saved.
 
-Do NOT auto-open BambuStudio. Do NOT skip this question.
+Do NOT auto-open BambuStudio. Do NOT auto-send to printer. Do NOT skip this question.
+
+---
+
+## Printer Flow (Steps P1-P5)
+
+### Step P1: Check Printer Setup
+
+```bash
+python3 -c "import json; json.load(open('$HOME/.claude/bambu-config.json'))" 2>/dev/null && echo "CONFIGURED" || echo "NOT_CONFIGURED"
+```
+
+Also check bambu-lab-cloud-api is installed:
+```bash
+python3 -c "from bambulab import BambuClient; print('OK')" 2>/dev/null
+```
+
+**If bambu-lab-cloud-api not installed:**
+1. Tell user: "Printer integration requires the bambu-lab-cloud-api package."
+2. Ask: "Would you like me to install it? (`pip install bambu-lab-cloud-api`)"
+3. If yes: install. If no: stop.
+
+**If NOT_CONFIGURED:**
+1. Tell user: "Your BambuLab printer isn't set up yet. Let's connect it now."
+2. Run: `python3 ~/.claude/skills/print/scripts/printer_setup.py setup`
+3. This is interactive -- the script will prompt for email, password, 2FA code, and printer selection.
+4. Parse JSON output. If status is "ok", proceed. If "error", show error and stop.
+
+**If CONFIGURED:**
+- Load config to get printer name.
+- Route based on what user asked:
+  - Setup/configure request --> run setup anyway (re-auth)
+  - Status request --> Step P4
+  - Control request (pause/resume/cancel) --> Step P5
+  - Send/print request --> Step P2
+
+### Step P2: Confirm Print (Send to Printer)
+
+Before sending, always show a confirmation summary.
+
+Determine which file to send:
+- If a model was just generated/exported in this session: use that 3MF path
+- If user specified a file path: use that
+- If neither: ask user which file to send
+
+Show confirmation:
+```
+Ready to print:
+  File: ~/3d-prints/phone-stand/model.3mf
+  Printer: My A1 Printer
+
+  Options:
+  1. Send to printer (cloud print) -- will slice and upload
+  2. Open in BambuStudio (slice and print manually)
+
+Which would you like?
+```
+
+- If user picks option 1 --> Step P3
+- If user picks option 2 --> run `python3 ~/.claude/skills/print/scripts/printer_control.py open "<file_path>"` and done.
+
+**Preset selection (optional):** If the user mentions settings like "draft quality" or "strong":
+```
+Available presets:
+  - draft: 0.28mm layers, 15% infill, fast
+  - standard: 0.20mm layers, 20% infill, balanced
+  - quality: 0.12mm layers, 20% infill, detailed
+  - strong: 0.20mm layers, 50% infill, durable
+
+Using "standard" preset. Change? (or say "send" to proceed)
+```
+
+### Step P3: Send to Printer
+
+Run the send command:
+```bash
+python3 ~/.claude/skills/print/scripts/printer_control.py send "<file_path>" [--preset <name>]
+```
+
+Parse JSON output.
+
+**If status is "error":**
+- If `reauth` is true: run `printer_setup.py setup` to re-authenticate, then retry
+- If BambuStudio not found: tell user to install it, offer "open in BambuStudio" as fallback
+- Otherwise: show error message
+
+**If status is "ok":**
+- Tell user: "Print started! Sending to [printer name]."
+- Automatically proceed to Step P4 for status monitoring.
+
+### Step P4: Check Printer Status
+
+```bash
+python3 ~/.claude/skills/print/scripts/printer_control.py status
+```
+
+Parse JSON output and present formatted status:
+
+```
+Printer: My A1 Printer
+State: Printing
+Progress: 45% (layer 120/267)
+ETA: 32 minutes remaining
+Nozzle: 220C / 220C target
+Bed: 60C / 60C target
+Speed: 100%
+File: phone-stand.3mf
+```
+
+**If printer has error:**
+```
+Printer: My A1 Printer
+State: ERROR
+Error: [error details]
+
+Suggested actions:
+  - [suggestion 1]
+  - [suggestion 2]
+
+Would you like to resume, cancel, or troubleshoot?
+```
+
+**If token warning present:** show it: "Note: Your login token may be expiring soon. If you see auth errors, I'll help you re-authenticate."
+
+### Step P5: Print Control
+
+For pause/resume/cancel requests:
+
+```bash
+# Pause
+python3 ~/.claude/skills/print/scripts/printer_control.py pause
+
+# Resume
+python3 ~/.claude/skills/print/scripts/printer_control.py resume
+
+# Cancel
+python3 ~/.claude/skills/print/scripts/printer_control.py cancel
+```
+
+**For cancel:** Always confirm with the user first: "Are you sure you want to cancel the print? This cannot be undone."
+
+After any control command, automatically run Step P4 to show updated status.
+
+---
 
 ## Step 9: Modify Existing Model
 
@@ -586,3 +744,5 @@ If the unzip/inject/rezip process fails for any reason:
 - @reference/printability-checklist.md -- Geometry risk patterns, confidence language, messiness detection
 - @reference/print-settings.md -- Purpose-based print profiles, geometry adjustments, BambuStudio parameters
 - @scripts/makerworld_search.py -- MakerWorld search and download CLI (Playwright-based)
+- @scripts/printer_setup.py -- BambuLab account auth, printer selection, config management
+- @scripts/printer_control.py -- Send prints, check status, pause/resume/cancel
