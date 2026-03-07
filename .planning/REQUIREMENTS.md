@@ -1,7 +1,7 @@
 # Requirements: Claude BambuLab Printer Interface
 
 **Defined:** 2026-03-08
-**Core Value:** Any 3D printer owner can go from "I want to print X" to a physical print through natural language — no CAD skills required.
+**Core Value:** Any 3D printer owner can go from "I want to print X" to a physical print through natural language -- no CAD skills required.
 
 ## v2.0 Requirements
 
@@ -66,30 +66,30 @@ Requirements for web dashboard release. Each maps to roadmap phases.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
-| CHAT-01 | — | Pending |
-| CHAT-02 | — | Pending |
-| CHAT-03 | — | Pending |
-| VIEW-01 | — | Pending |
-| VIEW-02 | — | Pending |
-| VIEW-03 | — | Pending |
-| MNTR-01 | — | Pending |
-| MNTR-02 | — | Pending |
-| MNTR-03 | — | Pending |
-| MNTR-04 | — | Pending |
-| MNTR-05 | — | Pending |
-| SRCH-01 | — | Pending |
-| SRCH-02 | — | Pending |
-| SRCH-03 | — | Pending |
-| INFR-01 | — | Pending |
-| INFR-02 | — | Pending |
-| INFR-03 | — | Pending |
-| INFR-04 | — | Pending |
+| CHAT-01 | Phase 6 | Pending |
+| CHAT-02 | Phase 6 | Pending |
+| CHAT-03 | Phase 11 | Pending |
+| VIEW-01 | Phase 7 | Pending |
+| VIEW-02 | Phase 7 | Pending |
+| VIEW-03 | Phase 11 | Pending |
+| MNTR-01 | Phase 8 | Pending |
+| MNTR-02 | Phase 9 | Pending |
+| MNTR-03 | Phase 9 | Pending |
+| MNTR-04 | Phase 9 | Pending |
+| MNTR-05 | Phase 9 | Pending |
+| SRCH-01 | Phase 10 | Pending |
+| SRCH-02 | Phase 10 | Pending |
+| SRCH-03 | Phase 10 | Pending |
+| INFR-01 | Phase 5 | Pending |
+| INFR-02 | Phase 7 | Pending |
+| INFR-03 | Phase 9 | Pending |
+| INFR-04 | Phase 8 | Pending |
 
 **Coverage:**
 - v2.0 requirements: 18 total
-- Mapped to phases: 0
-- Unmapped: 18 ⚠️
+- Mapped to phases: 18
+- Unmapped: 0
 
 ---
 *Requirements defined: 2026-03-08*
-*Last updated: 2026-03-08 after initial definition*
+*Last updated: 2026-03-08 after roadmap creation*
