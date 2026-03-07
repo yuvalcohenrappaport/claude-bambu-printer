@@ -14,7 +14,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Skill Foundation + Model Generation** - Claude Code skill that generates parametric 3D models from natural language and exports 3MF files
 - [x] **Phase 2: Model Refinement + Customization** - Iterative model modification, scaling, and print settings recommendations
-- [ ] **Phase 3: MakerWorld Search + Download** - Natural language search for existing models on MakerWorld with download pipeline
+- [x] **Phase 3: MakerWorld Search + Download** - Natural language search for existing models on MakerWorld with download pipeline (completed 2026-03-06)
 - [ ] **Phase 4: Printer Integration** - Send 3MF files to BambuLab printer and monitor print status
 
 ## Phase Details
@@ -73,10 +73,11 @@ Plans:
 **Success Criteria** (what must be TRUE):
   1. User can send a 3MF file to their BambuLab printer for printing
   2. User can check printer status (idle, printing, error) from Claude Code
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 04-01: TBD
+- [ ] 04-01-PLAN.md -- Create printer scripts (setup auth + control: send/status/pause/resume/cancel)
+- [ ] 04-02-PLAN.md -- Integrate printer operations into SKILL.md (Steps P1-P5 + user verification)
 
 ## Progress
 
@@ -88,5 +89,5 @@ Note: Phases 3 and 4 depend only on Phase 1, not on each other. Execution is seq
 |-------|----------------|--------|-----------|
 | 1. Skill Foundation + Model Generation | 2/2 | Complete    | 2026-03-05 |
 | 2. Model Refinement + Customization | 2/2 | Complete    | 2026-03-06 |
-| 3. MakerWorld Search + Download | 2/3 | In progress | - |
-| 4. Printer Integration | 0/1 | Not started | - |
+| 3. MakerWorld Search + Download | 2/3 | Complete    | 2026-03-06 |
+| 4. Printer Integration | 0/2 | Not started | - |
