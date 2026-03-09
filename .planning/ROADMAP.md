@@ -40,11 +40,11 @@ Full details: [milestones/v1.0-ROADMAP.md](milestones/v1.0-ROADMAP.md)
   2. Backend spawns a Claude Code subprocess per session and cleans it up on disconnect
   3. WebSocket connection stays alive with heartbeat -- no silent drops after idle time
   4. Multiple browser tabs each get isolated sessions with no state bleed between them
-**Plans**: TBD
+**Plans**: 2 plans
 
 Plans:
-- [ ] 05-01: TBD
-- [ ] 05-02: TBD
+- [ ] 05-01-PLAN.md — FastAPI backend with session management and Claude Code subprocess lifecycle
+- [ ] 05-02-PLAN.md — React frontend with WebSocket hook and connection status UI
 
 ### Phase 6: Chat Interface
 **Goal**: Users can have a real-time streaming conversation with Claude Code through the browser
