@@ -35,7 +35,7 @@ Requirements for web dashboard release. Each maps to roadmap phases.
 
 ### Infrastructure
 
-- [ ] **INFR-01**: FastAPI backend manages Claude Code subprocess via claude-agent-sdk with WebSocket communication
+- [x] **INFR-01**: FastAPI backend manages Claude Code subprocess via claude-agent-sdk with WebSocket communication
 - [ ] **INFR-02**: MCP server lets Claude Code push UI updates (model preview, status, search results) to the browser
 - [ ] **INFR-03**: MQTT bridge relays printer status to browser via WebSocket for live monitoring
 - [ ] **INFR-04**: User can view and adjust key print settings (infill, layer height, speed) in a visual editor before printing
@@ -80,7 +80,7 @@ Requirements for web dashboard release. Each maps to roadmap phases.
 | SRCH-01 | Phase 10 | Pending |
 | SRCH-02 | Phase 10 | Pending |
 | SRCH-03 | Phase 10 | Pending |
-| INFR-01 | Phase 5 | Pending |
+| INFR-01 | Phase 5 | Complete |
 | INFR-02 | Phase 7 | Pending |
 | INFR-03 | Phase 9 | Pending |
 | INFR-04 | Phase 8 | Pending |

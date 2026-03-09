@@ -11,11 +11,11 @@ See: .planning/PROJECT.md (updated 2026-03-08)
 
 Milestone: v2.0 -- Web Dashboard
 Phase: 5 of 11 (Backend Foundation)
-Plan: 0 of 2 in current phase
-Status: Ready to plan
-Last activity: 2026-03-08 -- Roadmap created for v2.0 (7 phases, 18 requirements mapped)
+Plan: 1 of 2 in current phase
+Status: Executing
+Last activity: 2026-03-09 -- Completed 05-01 Backend Foundation (FastAPI + WebSocket + Session lifecycle)
 
-Progress: [░░░░░░░░░░] v2.0: 0%
+Progress: [█░░░░░░░░░] v2.0: ~7%
 
 ## Performance Metrics
 
@@ -29,6 +29,7 @@ Progress: [░░░░░░░░░░] v2.0: 0%
 | Phase | Plans | Total | Avg/Plan |
 |-------|-------|-------|----------|
 | v1.0 Phases 1-4 | 9 | ~3 days | -- |
+| 05-backend-foundation | Plan 1 | 4min | 4min |
 
 *Updated after each plan completion*
 
@@ -41,6 +42,8 @@ Recent decisions affecting current work:
 
 - v2.0 Roadmap: 7 phases (5-11), Phase 9 (MQTT) independent of critical path
 - v2.0 Architecture: React + Vite + Three.js frontend, FastAPI + WebSocket backend, claude-agent-sdk for subprocess
+- Used pydantic-settings (not python-dotenv) for typed config with BAMBU_ env prefix
+- include_partial_messages=True on ClaudeSDKClient for streaming deltas
 
 ### Pending Todos
 
@@ -55,6 +58,6 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-03-08
-Stopped at: v2.0 roadmap created, ready to plan Phase 5
+Last session: 2026-03-09
+Stopped at: Completed 05-01-PLAN.md
 Resume file: None
