@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+
+# Backend
+backend/logs/
+backend/.env
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
