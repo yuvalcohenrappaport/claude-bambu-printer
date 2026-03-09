@@ -1,0 +1,107 @@
+.app {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #0f172a;
+  font-family: system-ui, -apple-system, sans-serif;
+  color: #e2e8f0;
+}
+
+.card {
+  background: #1e293b;
+  border-radius: 12px;
+  padding: 2.5rem;
+  min-width: 360px;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.3);
+  text-align: center;
+}
+
+h1 {
+  margin: 0 0 0.25rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+}
+
+.subtitle {
+  margin: 0 0 1.5rem;
+  color: #94a3b8;
+  font-size: 0.875rem;
+}
+
+.status-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.status-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.status-label {
+  font-size: 1.125rem;
+  font-weight: 500;
+}
+
+.session-id {
+  color: #94a3b8;
+  font-size: 0.8rem;
+  margin: 0 0 0.75rem;
+}
+
+.session-id code {
+  background: #334155;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+}
+
+.info-text {
+  color: #94a3b8;
+  font-size: 0.875rem;
+  margin: 0.5rem 0;
+}
+
+.error-section {
+  margin-top: 0.5rem;
+}
+
+.retry-btn {
+  margin-top: 0.75rem;
+  padding: 0.5rem 1.25rem;
+  border: none;
+  border-radius: 6px;
+  background: #3b82f6;
+  color: white;
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: background 150ms;
+}
+
+.retry-btn:hover {
+  background: #2563eb;
+}
+
+.last-message {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #334155;
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.last-message .label {
+  color: #94a3b8;
+}
+
+.last-message code {
+  background: #334155;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+}
