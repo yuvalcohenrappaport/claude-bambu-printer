@@ -64,7 +64,7 @@ Before anything else, determine whether the user wants to **search for an existi
 - "setup printer", "connect printer", "configure printer"
 
 **Validate indicators** (trigger validate flow -- Steps V1-V2):
-- "check", "audit", "validate", "inspect", "is this printable", "is this file ok", "mesh check", "non-manifold", "will this print"
+- "audit", "validate", "inspect", "is this printable", "is this file ok", "mesh check", "non-manifold", "will this print", "check mesh", "check this file", "check model"
 
 **Ambiguous** (neither set of indicators is clearly present, or both are present):
 - Ask: "Would you like me to search MakerWorld for an existing model, or generate a custom one from scratch?"
@@ -185,21 +185,23 @@ Then go to **Step 8** (offer to open in BambuStudio). Use the first 3MF file for
 - **Print settings (Step 12):** Can still be applied if a 3MF was downloaded. For STL-only downloads, tell the user to configure settings in BambuStudio.
 - **Modification (Step 9):** Not applicable to downloaded models (no .scad source). If the user asks to modify a downloaded model, explain this and offer to generate a similar model from scratch instead.
 
-**Automatic mesh audit (new):** Before proceeding to Step 8, run the audit on the first 3MF/STL file that was downloaded:
+**Automatic mesh audit:** Before proceeding to Step 8, run the audit on the first 3MF/STL file that was downloaded:
 
 1. Trigger Step 0a (Blender setup check) if not already completed in this session.
 2. Run: `python3 ~/.claude/skills/print/scripts/blender_audit.py "<downloaded_file_path>"`
-3. Parse the JSON. The `result` object has `dimensions_mm`, `triangle_count`, `non_manifold_edges`, `flipped_normals`, and `issues`.
+3. Parse the JSON. The envelope shape is `{"status": "ok", "result": {...}, "needs_repair": <bool>}` — `needs_repair` is a top-level boolean, NOT inside `result`. The `result` object has `dimensions_mm`, `triangle_count`, `non_manifold_edges`, `flipped_normals`, and `issues`.
 
 Present the audit inline with the download summary:
 
 ```
 Mesh audit:
-  Dimensions: 118 × 76 × 44 mm
+  Dimensions: 118 × 76 × 44 mm  [fits Bambu A1 build plate: 256 × 256 × 256]
   Triangles:  84,230
   Manifold:   ✓ yes
   Normals:    ✓ consistent
 ```
+
+Include the same specific axis-exceeded warning from V1 if any dimension is over 256mm.
 
 If the JSON has `"needs_repair": true`, show the issues and immediately offer repair (go to **Step V2**). If `needs_repair` is false but there are advisory-only issues (high triangle count, etc.), list them as informational and continue to Step 8.
 
@@ -387,14 +389,48 @@ After showing the summary, ask:
 What would you like to do next?
 1. Open in BambuStudio (for manual slicing and printing)
 2. Send directly to your printer (cloud print)
-3. Done for now
+3. Generate a photo-quality render (Blender)
+4. Done for now
 ```
 
 - **If option 1**: `open -a BambuStudio "$OUTPUT_DIR/model.3mf"`
 - **If option 2**: go to **Step P2** (confirm print) with the current 3MF file.
-- **If option 3**: Done. Remind the user where the files are saved.
+- **If option 3**: go to **Step 8.3** (hero render).
+- **If option 4**: Done. Remind the user where the files are saved.
 
 Do NOT auto-open BambuStudio. Do NOT auto-send to printer. Do NOT skip this question.
+
+---
+
+### Step 8.3: Hero Render (option 3)
+
+Triggered by option 3 from the Step 8 menu, or mid-conversation by keywords: "render it nicely", "show me what it looks like", "hero shot", "photo-quality", "pretty picture".
+
+**Prerequisites:** Step 0a (Blender setup check). Requires Blender installed; MCP/venv are optional.
+
+**Determine target file:**
+- If a model was just generated/downloaded in this session: use its `.3mf` (or `.stl` fallback).
+- Otherwise ask: "Which file should I render?"
+
+**Run the render:**
+```bash
+python3 ~/.claude/skills/print/scripts/blender_render.py "<input_file>"
+```
+
+This writes `render.png` next to the input file (keeping the existing `preview.png` untouched).
+
+Takes ~15-30s on Apple Silicon. Tell the user the render is running before starting so they're not left wondering.
+
+**If status is "error":** show the error. Offer to retry or skip.
+
+**If status is "ok":** present:
+
+```
+Hero render saved: <output_path>
+(preview.png is still available for the fast matte view)
+```
+
+Then ask if they want to do anything else (return to the Step 8 menu).
 
 ---
 
@@ -570,9 +606,9 @@ Mesh audit: <filename>
   Normals:    ✓ consistent  (or ⚠ N flipped)
 ```
 
-Build-plate fit check: compare each dimension to 256mm (Bambu A1). If any dim > 256, add a line: `⚠ Exceeds Bambu A1 build plate — rotate or scale before printing.`
+Build-plate fit check: compare each dimension to 256mm (Bambu A1 X/Y/Z). If any axis exceeds 256, add a specific line naming the offending axis and its value, e.g., `⚠ Height (310mm) exceeds Bambu A1 build plate (256mm) — scale down or split the model.` For planar axes (X or Y) say `rotate or scale`; for Z say `scale down or split`.
 
-**If `needs_repair` is true:** go to **Step V2** automatically (but still confirm with user first).
+**If `needs_repair` is true:** proceed directly to Step V2 — show the repair offer without asking whether to show it. (The user still confirms whether to actually run the repair in Step V2.)
 
 **If `needs_repair` is false but issues list is non-empty:** show issues as advisory, do not offer repair.
 
@@ -594,6 +630,8 @@ Want me to run Blender's cleanup on this file?
   • delete loose geometry
 Original file will be preserved as `<filename>.original`.
 ```
+
+Note: `blender_repair.py` currently supports `.stl` and `.obj` files only. If the target is a `.3mf`, explain to the user that mesh repair is not yet supported for 3MF and suggest exporting to STL from BambuStudio first.
 
 **Wait for user confirmation.** Do not auto-repair.
 
@@ -872,6 +910,7 @@ If the unzip/inject/rezip process fails for any reason:
 - @scripts/printer_control.py -- Send prints, check status, pause/resume/cancel
 - @reference/blender-guide.md -- Blender bpy patterns for organic shapes, 3MF export incantation, CLI reference, common error patterns
 - @scripts/blender_setup.py -- Blender install check, venv management, MCP registration
-- @scripts/blender_bridge.py -- Shared Blender subprocess wrapper used by all Blender orchestrators
+- @scripts/blender_bridge.py -- Internal subprocess wrapper used by other Blender orchestrators; not invoked directly by SKILL.md steps
 - @scripts/blender_audit.py -- Mesh audit CLI (manifold check, normals, dimensions, triangles)
 - @scripts/blender_repair.py -- Mesh repair CLI with backup
+- @scripts/blender_render.py -- Photo-quality render CLI (Eevee, 1280x960, 3-point lighting)
