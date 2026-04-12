@@ -39,6 +39,7 @@ Blender is invoked in background mode exclusively:
 ```bash
 /Applications/Blender.app/Contents/MacOS/Blender \
     --background \
+    --factory-startup \
     --python <script.py> \
     -- <arg1> <arg2> ...
 ```
@@ -82,7 +83,7 @@ for collection in (bpy.data.meshes, bpy.data.materials, bpy.data.cameras, bpy.da
 
 | Format | Operator | Notes |
 |---|---|---|
-| STL | `bpy.ops.wm.stl_import(filepath=...)` | Blender 5.1 moved this from `import_mesh.stl` |
+| STL | `bpy.ops.wm.stl_import(filepath=...)` | Blender 4.0+ moved this from `import_mesh.stl` (available in 5.x as well) |
 | OBJ | `bpy.ops.wm.obj_import(filepath=...)` | Blender 5.1 name |
 | 3MF | Varies by Blender version — verified at runtime by `scripts/bpy/probe_3mf.py` | May require a bundled extension enable |
 
@@ -90,7 +91,7 @@ If a 3MF operator is unavailable, convert the 3MF to STL externally (e.g., `mesh
 
 ## Exporting 3MF
 
-Blender 5.1 ships a 3MF exporter but the operator name has changed across versions. Use the probe script result (stored at `~/.claude/skills/print/.blender-3mf-op.txt` after Phase 4 Task 4.1 runs) rather than hardcoding. Fallback: export STL via `bpy.ops.wm.stl_export(filepath=...)` and convert.
+Blender 5.1 ships a 3MF exporter but the operator name has changed across versions. Use the probe script result (stored at `~/.claude/skills/print/.blender-3mf-op.txt` after Phase 4 Task 4.1 runs) rather than hardcoding. If the cache file does not exist (e.g., the probe hasn't run yet in Phase 1 or 2), treat the operator as unavailable and use the STL fallback below. Fallback: export STL via `bpy.ops.wm.stl_export(filepath=...)` and convert externally with `meshio` if a 3MF is strictly required.
 
 ## Organic shape patterns
 
@@ -100,25 +101,43 @@ Blender 5.1 ships a 3MF exporter but the operator name has changed across versio
 import bpy, bmesh
 from math import cos, sin, pi
 
+# IMPORTANT: Script must set unit scale to 0.001 at the top — see "Unit scale gotcha"
+# bpy.context.scene.unit_settings.system = 'METRIC'
+# bpy.context.scene.unit_settings.scale_length = 0.001
+
 bm = bmesh.new()
 # Create 8 rings stacked along Z, each a circle of varying radius
+rings = []
 for i in range(8):
-    z = i * 10
-    r = 20 + 5 * sin(i * pi / 7)
+    z = i * 10  # mm
+    r = 20 + 5 * sin(i * pi / 7)  # mm
     ring = []
     for j in range(24):
         theta = j * 2 * pi / 24
         v = bm.verts.new((r * cos(theta), r * sin(theta), z))
         ring.append(v)
-    # Link to previous ring
-    if i > 0:
-        prev = prev_ring
-        for j in range(24):
-            bm.faces.new([prev[j], prev[(j+1)%24], ring[(j+1)%24], ring[j]])
-    prev_ring = ring
+    rings.append(ring)
 
-# Cap top and bottom
-bm.faces.new(prev_ring)
+# Side faces: quads between consecutive rings
+for i in range(len(rings) - 1):
+    a, b = rings[i], rings[i + 1]
+    for j in range(24):
+        bm.faces.new([a[j], a[(j + 1) % 24], b[(j + 1) % 24], b[j]])
+
+# Cap top and bottom with a fan triangulation (avoids n-gons, stays manifold)
+def cap_ring(ring, reverse=False):
+    cx = sum(v.co.x for v in ring) / len(ring)
+    cy = sum(v.co.y for v in ring) / len(ring)
+    cz = sum(v.co.z for v in ring) / len(ring)
+    center = bm.verts.new((cx, cy, cz))
+    for j in range(len(ring)):
+        tri = [center, ring[j], ring[(j + 1) % len(ring)]]
+        if reverse:
+            tri.reverse()
+        bm.faces.new(tri)
+
+cap_ring(rings[0], reverse=True)   # bottom — normal points -Z
+cap_ring(rings[-1], reverse=False) # top — normal points +Z
 
 me = bpy.data.meshes.new("loft")
 bm.to_mesh(me)
@@ -130,6 +149,7 @@ bpy.context.collection.objects.link(obj)
 ### Subdivision-surface for smoothness
 
 ```python
+bpy.context.view_layer.objects.active = obj
 mod = obj.modifiers.new("subsurf", 'SUBSURF')
 mod.levels = 2
 mod.render_levels = 3
@@ -139,6 +159,7 @@ bpy.ops.object.modifier_apply(modifier="subsurf")
 ### Boolean CSG (faster than OpenSCAD for complex meshes)
 
 ```python
+bpy.context.view_layer.objects.active = obj
 mod = obj.modifiers.new("bool", 'BOOLEAN')
 mod.object = other_obj
 mod.operation = 'DIFFERENCE'
@@ -149,6 +170,7 @@ bpy.data.objects.remove(other_obj, do_unlink=True)
 ### Bevel edges (fillets for organic transitions)
 
 ```python
+bpy.context.view_layer.objects.active = obj
 mod = obj.modifiers.new("bevel", 'BEVEL')
 mod.width = 1.0  # mm (with unit scale 0.001)
 mod.segments = 4
