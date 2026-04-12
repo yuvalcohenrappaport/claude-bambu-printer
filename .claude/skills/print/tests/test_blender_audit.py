@@ -22,8 +22,11 @@ def make_fake_result(success=True, data=None, stderr=""):
 
 
 def test_audit_returns_ok_json_on_clean_cube(tmp_path, capsys):
+    cube = tmp_path / "cube.stl"
+    cube.write_bytes(b"fake stl content")
+
     fake = make_fake_result(success=True, data={
-        "file": "/tmp/cube.stl",
+        "file": str(cube),
         "dimensions_mm": [20.0, 20.0, 20.0],
         "triangle_count": 12,
         "non_manifold_edges": 0,
@@ -31,7 +34,7 @@ def test_audit_returns_ok_json_on_clean_cube(tmp_path, capsys):
         "issues": [],
     })
     with patch.object(blender_bridge, "run_bpy_script", return_value=fake):
-        rc = blender_audit.main(["/tmp/cube.stl"])
+        rc = blender_audit.main([str(cube)])
     assert rc == 0
     out = json.loads(capsys.readouterr().out)
     assert out["status"] == "ok"
@@ -40,8 +43,11 @@ def test_audit_returns_ok_json_on_clean_cube(tmp_path, capsys):
 
 
 def test_audit_sets_needs_repair_when_issues_present(tmp_path, capsys):
+    bad = tmp_path / "bad.stl"
+    bad.write_bytes(b"fake")
+
     fake = make_fake_result(success=True, data={
-        "file": "/tmp/bad.stl",
+        "file": str(bad),
         "dimensions_mm": [20.0, 20.0, 20.0],
         "triangle_count": 10,
         "non_manifold_edges": 4,
@@ -49,7 +55,7 @@ def test_audit_sets_needs_repair_when_issues_present(tmp_path, capsys):
         "issues": ["4 non-manifold edges"],
     })
     with patch.object(blender_bridge, "run_bpy_script", return_value=fake):
-        rc = blender_audit.main(["/tmp/bad.stl"])
+        rc = blender_audit.main([str(bad)])
     assert rc == 0
     out = json.loads(capsys.readouterr().out)
     assert out["status"] == "ok"
@@ -58,9 +64,12 @@ def test_audit_sets_needs_repair_when_issues_present(tmp_path, capsys):
 
 
 def test_audit_returns_error_on_blender_failure(tmp_path, capsys):
+    x = tmp_path / "x.stl"
+    x.write_bytes(b"")
+
     fake = make_fake_result(success=False, stderr="ImportError: bpy not found")
     with patch.object(blender_bridge, "run_bpy_script", return_value=fake):
-        rc = blender_audit.main(["/tmp/x.stl"])
+        rc = blender_audit.main([str(x)])
     assert rc == 1
     out = json.loads(capsys.readouterr().out)
     assert out["status"] == "error"
