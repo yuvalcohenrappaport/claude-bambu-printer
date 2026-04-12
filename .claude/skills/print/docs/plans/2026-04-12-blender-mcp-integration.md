@@ -651,6 +651,63 @@ def test_status_subcommand_returns_json(tmp_path, monkeypatch, capsys):
     assert data["blender_installed"] is False
     assert data["mcp_venv"] is False
     assert data["mcp_registered"] is False
+
+
+def test_register_mcp_raises_on_malformed_json(tmp_path, monkeypatch):
+    """A settings file with invalid JSON must not be silently clobbered."""
+    cfg = tmp_path / "settings.json"
+    cfg.write_text("{this is not valid json")
+    monkeypatch.setattr(blender_setup, "CLAUDE_SETTINGS_PATH", str(cfg))
+    monkeypatch.setattr(blender_setup, "VENV_DIR", "/fake/venv")
+
+    with pytest.raises(blender_setup.BlenderSetupError):
+        blender_setup.register_mcp()
+
+    # File must NOT have been overwritten
+    assert cfg.read_text() == "{this is not valid json"
+
+
+def test_register_mcp_handles_mcpServers_as_non_dict(tmp_path, monkeypatch):
+    """If mcpServers is a list or string, replace it with a fresh dict."""
+    cfg = tmp_path / "settings.json"
+    cfg.write_text(json.dumps({"mcpServers": ["oops", "a list"], "other": "stuff"}))
+    monkeypatch.setattr(blender_setup, "CLAUDE_SETTINGS_PATH", str(cfg))
+    monkeypatch.setattr(blender_setup, "VENV_DIR", "/fake/venv")
+
+    blender_setup.register_mcp()
+
+    data = json.loads(cfg.read_text())
+    assert isinstance(data["mcpServers"], dict)
+    assert "blender_mcp" in data["mcpServers"]
+    # Pre-existing non-mcpServers keys preserved
+    assert data["other"] == "stuff"
+
+
+def test_atomic_write_json_creates_file(tmp_path):
+    """_atomic_write_json writes the target and cleans up no tempfiles."""
+    target = tmp_path / "out.json"
+    blender_setup._atomic_write_json(target, {"a": 1})
+    assert target.exists()
+    assert json.loads(target.read_text()) == {"a": 1}
+    # No leftover .tmp files in the directory
+    tmp_files = list(tmp_path.glob("*.tmp"))
+    assert tmp_files == [], f"Leftover tempfiles: {tmp_files}"
+
+
+def test_cmd_install_catches_oserror_from_venv(tmp_path, monkeypatch, capsys):
+    """An OSError during venv creation must produce JSON error, not a traceback."""
+    from unittest.mock import patch
+    monkeypatch.setattr(blender_setup, "MACOS_BLENDER_PATH", "/Applications/Blender.app/Contents/MacOS/Blender")
+    # Simulate Blender being present so the early-return doesn't fire
+    with patch.object(blender_setup, "check_blender_app", return_value=True):
+        with patch.object(blender_setup, "install_mcp_package", side_effect=OSError("disk full")):
+            rc = blender_setup.main(["install"])
+
+    assert rc == 1
+    out = capsys.readouterr().out
+    data = json.loads(out)
+    assert data["status"] == "error"
+    assert "disk full" in data["error"]
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -689,6 +746,31 @@ MACOS_BLENDER_PATH = "/Applications/Blender.app/Contents/MacOS/Blender"
 VENV_DIR = os.path.expanduser("~/.claude/skills/print/.venv-blender")
 CLAUDE_SETTINGS_PATH = os.path.expanduser("~/.claude/settings.json")
 MCP_GIT_URL = "git+https://projects.blender.org/lab/blender_mcp.git"
+
+
+class BlenderSetupError(RuntimeError):
+    """Raised when blender_setup cannot safely perform the requested operation."""
+
+
+def _atomic_write_json(path: Path, data: dict) -> None:
+    """Write JSON atomically: to a sibling tempfile, then os.replace to target.
+
+    Prevents truncation of the destination if the process dies mid-write.
+    """
+    import tempfile
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp_name = tempfile.mkstemp(dir=str(path.parent), suffix=".tmp")
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
+        os.replace(tmp_name, path)
+    except Exception:
+        try:
+            os.unlink(tmp_name)
+        except OSError:
+            pass
+        raise
 
 
 def eprint(*args, **kwargs):
@@ -737,24 +819,29 @@ def register_mcp() -> None:
     """Add mcpServers.blender_mcp entry to ~/.claude/settings.json."""
     cfg_path = Path(CLAUDE_SETTINGS_PATH)
     if cfg_path.is_file():
-        with open(cfg_path) as f:
+        with open(cfg_path, encoding="utf-8") as f:
             try:
                 data = json.load(f)
-            except json.JSONDecodeError:
-                data = {}
+            except json.JSONDecodeError as e:
+                raise BlenderSetupError(
+                    f"{cfg_path} has invalid JSON: {e}. "
+                    f"Fix the file manually and re-run register."
+                )
     else:
         cfg_path.parent.mkdir(parents=True, exist_ok=True)
         data = {}
 
-    mcp_servers = data.setdefault("mcpServers", {})
+    mcp_servers = data.get("mcpServers")
+    if not isinstance(mcp_servers, dict):
+        mcp_servers = {}
+        data["mcpServers"] = mcp_servers
     mcp_servers["blender_mcp"] = {
         "command": str(Path(VENV_DIR) / "bin" / "blender-mcp"),
         "args": [],
         "env": {},
     }
 
-    with open(cfg_path, "w") as f:
-        json.dump(data, f, indent=2)
+    _atomic_write_json(cfg_path, data)
 
 
 def cmd_status() -> int:
@@ -782,6 +869,9 @@ def cmd_install() -> int:
     except subprocess.CalledProcessError as e:
         print(json.dumps({"status": "error", "error": f"pip install failed: {e}"}))
         return 1
+    except OSError as e:
+        print(json.dumps({"status": "error", "error": f"venv creation failed: {e}"}))
+        return 1
     print(json.dumps({"status": "ok", "venv": VENV_DIR}))
     return 0
 
@@ -789,7 +879,7 @@ def cmd_install() -> int:
 def cmd_register() -> int:
     try:
         register_mcp()
-    except OSError as e:
+    except (OSError, BlenderSetupError) as e:
         print(json.dumps({"status": "error", "error": str(e)}))
         return 1
     print(json.dumps({"status": "ok", "settings": CLAUDE_SETTINGS_PATH}))
