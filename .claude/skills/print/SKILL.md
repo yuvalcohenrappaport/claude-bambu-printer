@@ -23,6 +23,30 @@ Generate print-ready 3MF files from natural language descriptions using OpenSCAD
 - Do NOT cancel a print without user confirmation.
 - Do NOT auto-setup printer. Always ask user before running setup flow.
 
+## Step 0a: Check Blender Setup (runs lazily)
+
+This step is **triggered on demand** — only when the user's request hits a Blender-backed branch (organic generation, hero render, or mesh audit/repair). It is NOT run at the start of every conversation.
+
+Run the setup status script:
+
+```bash
+python3 ~/.claude/skills/print/scripts/blender_setup.py status
+```
+
+Parse the JSON output. Three flags:
+
+1. `blender_installed: false` → Tell user: "Blender isn't installed. Install via `brew install --cask blender`?" If yes, run `brew install --cask blender` and re-check. If no, fall back to the OpenSCAD path for the current request.
+
+2. `mcp_venv: false` → Tell user: "The Blender MCP Python package isn't installed yet. I'll create a venv at `~/.claude/skills/print/.venv-blender/` and install it — proceed?" If yes, run `python3 ~/.claude/skills/print/scripts/blender_setup.py install`. If no, continue without MCP (direct CLI fallback — still works, just no prompts.yml grounding).
+
+3. `mcp_registered: false` → Tell user: "I can register the Blender MCP server in `~/.claude/settings.json` so future conversations can use `execute_python` / `execute_blender_background` tools directly. Proceed?" If yes, run `python3 ~/.claude/skills/print/scripts/blender_setup.py register`. If no, continue without registration (direct CLI fallback).
+
+**Important:** flags 2 and 3 are **optional** — the skill's Blender branches work via direct CLI even when both are false. Only flag 1 (Blender itself) is a hard requirement.
+
+After handling any missing pieces, continue to the step that triggered the check (generation, render, or validate).
+
+---
+
 ## Step 0: Detect Intent
 
 Before anything else, determine whether the user wants to **search for an existing model**, **generate a new one**, or **interact with their printer**.
