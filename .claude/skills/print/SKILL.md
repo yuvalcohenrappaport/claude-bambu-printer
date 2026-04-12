@@ -63,6 +63,9 @@ Before anything else, determine whether the user wants to **search for an existi
 - "pause print", "resume print", "cancel print", "stop print"
 - "setup printer", "connect printer", "configure printer"
 
+**Validate indicators** (trigger validate flow -- Steps V1-V2):
+- "check", "audit", "validate", "inspect", "is this printable", "is this file ok", "mesh check", "non-manifold", "will this print"
+
 **Ambiguous** (neither set of indicators is clearly present, or both are present):
 - Ask: "Would you like me to search MakerWorld for an existing model, or generate a custom one from scratch?"
 - Wait for user response before proceeding.
@@ -71,6 +74,7 @@ Before anything else, determine whether the user wants to **search for an existi
 - Search intent detected --> go to **Step S1** (search flow).
 - Generate intent detected --> go to **Step 1** (generation flow, unchanged).
 - Printer intent detected --> go to **Step P1** (printer flow).
+- Validate intent detected --> go to **Step V1** (validate flow). Requires Step 0a (Blender setup check) first.
 
 ---
 
@@ -180,6 +184,26 @@ Then go to **Step 8** (offer to open in BambuStudio). Use the first 3MF file for
 - **Scaling:** Since there is no .scad source file, suggest the user resize in BambuStudio directly rather than trying to import into OpenSCAD.
 - **Print settings (Step 12):** Can still be applied if a 3MF was downloaded. For STL-only downloads, tell the user to configure settings in BambuStudio.
 - **Modification (Step 9):** Not applicable to downloaded models (no .scad source). If the user asks to modify a downloaded model, explain this and offer to generate a similar model from scratch instead.
+
+**Automatic mesh audit (new):** Before proceeding to Step 8, run the audit on the first 3MF/STL file that was downloaded:
+
+1. Trigger Step 0a (Blender setup check) if not already completed in this session.
+2. Run: `python3 ~/.claude/skills/print/scripts/blender_audit.py "<downloaded_file_path>"`
+3. Parse the JSON. The `result` object has `dimensions_mm`, `triangle_count`, `non_manifold_edges`, `flipped_normals`, and `issues`.
+
+Present the audit inline with the download summary:
+
+```
+Mesh audit:
+  Dimensions: 118 × 76 × 44 mm
+  Triangles:  84,230
+  Manifold:   ✓ yes
+  Normals:    ✓ consistent
+```
+
+If the JSON has `"needs_repair": true`, show the issues and immediately offer repair (go to **Step V2**). If `needs_repair` is false but there are advisory-only issues (high triangle count, etc.), list them as informational and continue to Step 8.
+
+**If the audit fails** (status: error): do NOT block the download flow. Show a one-line warning: "Couldn't audit this file — [error]. Proceeding anyway." and continue to Step 8.
 
 ---
 
@@ -515,6 +539,82 @@ After any control command, automatically run Step P4 to show updated status.
 
 ---
 
+## Validate Flow (Steps V1-V2)
+
+### Step V1: Run Mesh Audit
+
+Triggered by validate intent in Step 0, or automatically from the Step S3 download hook.
+
+**Prerequisites:** Step 0a (Blender setup check) must have been run. If not, run it now — audit needs Blender installed, but MCP/venv are optional.
+
+**Determine the target file:**
+- If invoked from S3: use the downloaded file path.
+- If invoked by user intent: parse the file path from their message, or ask: "Which file should I audit? (.stl, .obj, or .3mf path)"
+
+**Run the audit:**
+```bash
+python3 ~/.claude/skills/print/scripts/blender_audit.py "<file_path>"
+```
+
+Parse the JSON output.
+
+**If status is "error":** Show the error to the user. Offer to try a different file. Stop.
+
+**If status is "ok":** Present the audit as a formatted summary:
+
+```
+Mesh audit: <filename>
+  Dimensions: <x> × <y> × <z> mm  [fits build plate: 256 × 256 × 256]
+  Triangles:  <count>
+  Manifold:   ✓ yes  (or ⚠ N non-manifold edges)
+  Normals:    ✓ consistent  (or ⚠ N flipped)
+```
+
+Build-plate fit check: compare each dimension to 256mm (Bambu A1). If any dim > 256, add a line: `⚠ Exceeds Bambu A1 build plate — rotate or scale before printing.`
+
+**If `needs_repair` is true:** go to **Step V2** automatically (but still confirm with user first).
+
+**If `needs_repair` is false but issues list is non-empty:** show issues as advisory, do not offer repair.
+
+**If no issues at all:** say "This file looks clean — manifold, consistent normals, fits the build plate."
+
+### Step V2: Repair (conditional)
+
+Only offered when Step V1 / Step S3 audit flagged fixable issues (non-manifold edges, flipped normals).
+
+Show the repair prompt:
+
+```
+Found: <N> non-manifold edges, <M> flipped normals.
+
+Want me to run Blender's cleanup on this file?
+  • merge-by-distance (threshold 0.001mm)
+  • recalculate normals outside
+  • fill holes (max 4 edges)
+  • delete loose geometry
+Original file will be preserved as `<filename>.original`.
+```
+
+**Wait for user confirmation.** Do not auto-repair.
+
+If user confirms:
+
+1. Run: `python3 ~/.claude/skills/print/scripts/blender_repair.py "<file_path>"`
+2. Parse JSON. If status is "error", show the error and stop.
+3. If status is "ok", re-run the audit (Step V1) on the now-repaired file to show before/after.
+4. Present the diff:
+
+```
+Repair complete. Backup: <filename>.original
+
+Before:  4 non-manifold edges, 0 flipped normals
+After:   0 non-manifold edges, 0 flipped normals
+```
+
+If the user declines repair: do nothing, just leave the advisory in place.
+
+---
+
 ## Step 9: Modify Existing Model
 
 This step is triggered when the user asks to change a previously generated model (e.g., "add screw holes", "make the walls thicker", "add a slot on the side").
@@ -770,3 +870,8 @@ If the unzip/inject/rezip process fails for any reason:
 - @scripts/makerworld_search.py -- MakerWorld search and download CLI (Playwright-based)
 - @scripts/printer_setup.py -- BambuLab account auth, printer selection, config management
 - @scripts/printer_control.py -- Send prints, check status, pause/resume/cancel
+- @reference/blender-guide.md -- Blender bpy patterns for organic shapes, 3MF export incantation, CLI reference, common error patterns
+- @scripts/blender_setup.py -- Blender install check, venv management, MCP registration
+- @scripts/blender_bridge.py -- Shared Blender subprocess wrapper used by all Blender orchestrators
+- @scripts/blender_audit.py -- Mesh audit CLI (manifold check, normals, dimensions, triangles)
+- @scripts/blender_repair.py -- Mesh repair CLI with backup
