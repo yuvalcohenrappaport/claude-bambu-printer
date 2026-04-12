@@ -313,6 +313,39 @@ def test_json_marker_loads_output_file(tmp_path):
             result = blender_bridge.run_bpy_script(str(script), [str(out)])
 
     assert result.load_json() == {"k": "v"}
+
+
+def test_run_bpy_script_timeout_returns_str_stdout(tmp_path):
+    """TimeoutExpired.stdout is bytes — handler must decode to str."""
+    script = tmp_path / "slow.py"
+    script.write_text("import time; time.sleep(10)")
+
+    # TimeoutExpired carries bytes in .stdout/.stderr even when text=True
+    exc = subprocess.TimeoutExpired(
+        cmd=["fake"],
+        timeout=1,
+        output=b"partial output before timeout\n",
+        stderr=b"partial stderr",
+    )
+    with patch.object(blender_bridge, "find_blender", return_value="/fake/blender"):
+        with patch("subprocess.run", side_effect=exc):
+            result = blender_bridge.run_bpy_script(str(script), [], timeout=1)
+
+    assert result.success is False
+    assert result.returncode == -1
+    assert isinstance(result.stdout, str), f"stdout is {type(result.stdout).__name__}"
+    assert isinstance(result.stderr, str), f"stderr is {type(result.stderr).__name__}"
+    assert "partial output before timeout" in result.stdout
+    assert "timeout after 1s" in result.stderr
+
+
+def test_load_json_raises_blender_output_error_when_marker_missing():
+    """BlenderRunResult.load_json should raise a custom exception, not RuntimeError."""
+    r = blender_bridge.BlenderRunResult(
+        success=False, returncode=0, stdout="", stderr="", marker_path=None,
+    )
+    with pytest.raises(blender_bridge.BlenderOutputError):
+        r.load_json()
 ```
 
 - [ ] **Step 2: Run tests to verify they fail**
@@ -363,6 +396,10 @@ class BlenderNotFoundError(RuntimeError):
     """Raised when no Blender executable can be located."""
 
 
+class BlenderOutputError(RuntimeError):
+    """Raised when a Blender subprocess completed without producing the expected output."""
+
+
 @dataclass
 class BlenderRunResult:
     success: bool
@@ -374,8 +411,8 @@ class BlenderRunResult:
     def load_json(self) -> dict:
         """Read the marker path as JSON. Raises if marker is missing."""
         if not self.marker_path:
-            raise RuntimeError("No marker path available")
-        with open(self.marker_path) as f:
+            raise BlenderOutputError("No marker path available (Blender did not emit BLENDER_OK)")
+        with open(self.marker_path, encoding="utf-8") as f:
             return json.load(f)
 
 
@@ -401,7 +438,9 @@ def run_bpy_script(
     Args:
         script_path: path to a .py file containing bpy code
         args: list of positional args passed after `--` to the script
-        timeout: subprocess timeout in seconds (default 120)
+        timeout: subprocess timeout in seconds (default 120). Large mesh audits
+            or repair operations on ~500k-triangle meshes can approach this
+            limit — pass a larger value (e.g., 300) for those operations.
 
     Returns:
         BlenderRunResult with success flag, returncode, stdout, stderr,
@@ -426,14 +465,16 @@ def run_bpy_script(
             cmd,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=timeout,
         )
     except subprocess.TimeoutExpired as e:
         return BlenderRunResult(
             success=False,
             returncode=-1,
-            stdout=e.stdout or "",
-            stderr=(e.stderr or "") + f"\n[timeout after {timeout}s]",
+            stdout=_decode_maybe_bytes(e.stdout),
+            stderr=_decode_maybe_bytes(e.stderr) + f"\n[timeout after {timeout}s]",
             marker_path=None,
         )
 
@@ -447,6 +488,20 @@ def run_bpy_script(
         stderr=proc.stderr,
         marker_path=marker,
     )
+
+
+def _decode_maybe_bytes(data) -> str:
+    """Decode bytes with utf-8/replace; return str as-is; None becomes empty string.
+
+    subprocess.TimeoutExpired carries raw bytes even when subprocess.run was
+    called with text=True, because decoding only happens on the normal
+    success path. This helper lets the timeout handler produce a uniform str.
+    """
+    if data is None:
+        return ""
+    if isinstance(data, bytes):
+        return data.decode("utf-8", errors="replace")
+    return data
 
 
 def _parse_marker(stdout: str) -> Optional[str]:

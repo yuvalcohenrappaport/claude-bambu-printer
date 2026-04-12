@@ -86,3 +86,36 @@ def test_json_marker_loads_output_file(tmp_path):
             result = blender_bridge.run_bpy_script(str(script), [str(out)])
 
     assert result.load_json() == {"k": "v"}
+
+
+def test_run_bpy_script_timeout_returns_str_stdout(tmp_path):
+    """TimeoutExpired.stdout is bytes — handler must decode to str."""
+    script = tmp_path / "slow.py"
+    script.write_text("import time; time.sleep(10)")
+
+    # TimeoutExpired carries bytes in .stdout/.stderr even when text=True
+    exc = subprocess.TimeoutExpired(
+        cmd=["fake"],
+        timeout=1,
+        output=b"partial output before timeout\n",
+        stderr=b"partial stderr",
+    )
+    with patch.object(blender_bridge, "find_blender", return_value="/fake/blender"):
+        with patch("subprocess.run", side_effect=exc):
+            result = blender_bridge.run_bpy_script(str(script), [], timeout=1)
+
+    assert result.success is False
+    assert result.returncode == -1
+    assert isinstance(result.stdout, str), f"stdout is {type(result.stdout).__name__}"
+    assert isinstance(result.stderr, str), f"stderr is {type(result.stderr).__name__}"
+    assert "partial output before timeout" in result.stdout
+    assert "timeout after 1s" in result.stderr
+
+
+def test_load_json_raises_blender_output_error_when_marker_missing():
+    """BlenderRunResult.load_json should raise a custom exception, not RuntimeError."""
+    r = blender_bridge.BlenderRunResult(
+        success=False, returncode=0, stdout="", stderr="", marker_path=None,
+    )
+    with pytest.raises(blender_bridge.BlenderOutputError):
+        r.load_json()

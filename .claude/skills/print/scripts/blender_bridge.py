@@ -36,6 +36,10 @@ class BlenderNotFoundError(RuntimeError):
     """Raised when no Blender executable can be located."""
 
 
+class BlenderOutputError(RuntimeError):
+    """Raised when a Blender subprocess completed without producing the expected output."""
+
+
 @dataclass
 class BlenderRunResult:
     success: bool
@@ -47,8 +51,8 @@ class BlenderRunResult:
     def load_json(self) -> dict:
         """Read the marker path as JSON. Raises if marker is missing."""
         if not self.marker_path:
-            raise RuntimeError("No marker path available")
-        with open(self.marker_path) as f:
+            raise BlenderOutputError("No marker path available (Blender did not emit BLENDER_OK)")
+        with open(self.marker_path, encoding="utf-8") as f:
             return json.load(f)
 
 
@@ -74,7 +78,9 @@ def run_bpy_script(
     Args:
         script_path: path to a .py file containing bpy code
         args: list of positional args passed after `--` to the script
-        timeout: subprocess timeout in seconds (default 120)
+        timeout: subprocess timeout in seconds (default 120). Large mesh audits
+            or repair operations on ~500k-triangle meshes can approach this
+            limit — pass a larger value (e.g., 300) for those operations.
 
     Returns:
         BlenderRunResult with success flag, returncode, stdout, stderr,
@@ -99,14 +105,16 @@ def run_bpy_script(
             cmd,
             capture_output=True,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             timeout=timeout,
         )
     except subprocess.TimeoutExpired as e:
         return BlenderRunResult(
             success=False,
             returncode=-1,
-            stdout=e.stdout or "",
-            stderr=(e.stderr or "") + f"\n[timeout after {timeout}s]",
+            stdout=_decode_maybe_bytes(e.stdout),
+            stderr=_decode_maybe_bytes(e.stderr) + f"\n[timeout after {timeout}s]",
             marker_path=None,
         )
 
@@ -120,6 +128,20 @@ def run_bpy_script(
         stderr=proc.stderr,
         marker_path=marker,
     )
+
+
+def _decode_maybe_bytes(data) -> str:
+    """Decode bytes with utf-8/replace; return str as-is; None becomes empty string.
+
+    subprocess.TimeoutExpired carries raw bytes even when subprocess.run was
+    called with text=True, because decoding only happens on the normal
+    success path. This helper lets the timeout handler produce a uniform str.
+    """
+    if data is None:
+        return ""
+    if isinstance(data, bytes):
+        return data.decode("utf-8", errors="replace")
+    return data
 
 
 def _parse_marker(stdout: str) -> Optional[str]:
