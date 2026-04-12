@@ -4,7 +4,7 @@
 Outputs:
   cube.stl         — 20mm manifold cube (12 triangles)
   non_manifold.stl — same cube with one face removed (non-manifold edges)
-  large.stl        — 1000 triangle "organic" blob for triangle-count tests
+  large.stl        — 12,000-triangle grid of 1000 disconnected cubes (for triangle-count tests only)
 """
 from pathlib import Path
 import struct
@@ -62,8 +62,9 @@ def make_non_manifold_cube():
 
 
 def make_large():
-    # Generate a high-triangle-count "blob": subdivided icosphere-ish cube
-    # Simple approach: 10x10x10 grid of tiny cubes = 6000 triangles
+    # High-triangle-count fixture: 10x10x10 grid of 2mm cubes with 0.5mm gaps
+    # = 1000 disconnected cubes * 12 triangles = 12,000 triangles.
+    # Downstream tests only check triangle count, not connectivity.
     tris = []
     for ix in range(10):
         for iy in range(10):
