@@ -16,6 +16,15 @@ FIXTURES = ROOT / "tests" / "fixtures"
 BPY_AUDIT = ROOT / "scripts" / "bpy" / "audit.py"
 BLENDER = "/Applications/Blender.app/Contents/MacOS/Blender"
 
+# Module-level skip if Blender isn't installed at the expected path.
+# Integration tests spawn real Blender; without it they produce confusing
+# subprocess errors rather than a clean skip.
+if not Path(BLENDER).exists():
+    pytest.skip(
+        f"Blender not found at {BLENDER}; install via brew install --cask blender",
+        allow_module_level=True,
+    )
+
 
 def run_audit(input_file: Path, output_json: Path) -> subprocess.CompletedProcess:
     cmd = [

@@ -122,25 +122,34 @@ def audit(filepath: str) -> dict:
     reset_scene()
     set_mm_units()
     import_mesh_file(filepath)
+
+    # Ensure we're in OBJECT mode BEFORE any operator that requires it
+    # (join, origin_set, etc.). reset_scene + import usually leaves us in
+    # OBJECT mode, but defense-in-depth here is cheap.
+    if bpy.context.mode != "OBJECT":
+        bpy.ops.object.mode_set(mode="OBJECT")
+
     obj = join_mesh_objects()
 
-    # Ensure we're in object mode and mesh data is fresh
-    bpy.ops.object.mode_set(mode="OBJECT")
-
     bm = bmesh.new()
-    bm.from_mesh(obj.data)
-    bmesh.ops.triangulate(bm, faces=bm.faces)
+    try:
+        bm.from_mesh(obj.data)
 
-    non_manifold_edges = sum(1 for e in bm.edges if len(e.link_faces) != 2)
-    triangle_count = len(bm.faces)
-    flipped_normals = count_flipped_normals(bm)
+        # Count flipped normals BEFORE triangulation (triangulation can split
+        # quads and change which faces "own" a normal).
+        flipped_normals = count_flipped_normals(bm)
+
+        bmesh.ops.triangulate(bm, faces=bm.faces)
+
+        non_manifold_edges = sum(1 for e in bm.edges if len(e.link_faces) != 2)
+        triangle_count = len(bm.faces)
+    finally:
+        bm.free()
 
     # obj.dimensions is in scene units (mm, since we set scale_length = 0.001
     # AND the STL importer reads the file's raw numbers as units — so a 20mm
     # cube in the STL becomes 20 Blender-units, which is 20mm after scale).
     dims = [round(obj.dimensions[i], 3) for i in range(3)]
-
-    bm.free()
 
     issues = []
     if non_manifold_edges > 0:
