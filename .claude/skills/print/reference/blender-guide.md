@@ -71,9 +71,8 @@ Blender 5.1 ships a 3MF exporter but the operator name has changed across versio
 import bpy, bmesh
 from math import cos, sin, pi
 
-# IMPORTANT: Script must set unit scale to 0.001 at the top — see "Unit scale gotcha"
-# bpy.context.scene.unit_settings.system = 'METRIC'
-# bpy.context.scene.unit_settings.scale_length = 0.001
+# Prerequisite: ensure unit scale is set before this block — see "Unit scale gotcha" section above.
+# Dimensions below (z, r) are written in mm and assume scale_length = 0.001 has been applied.
 
 bm = bmesh.new()
 # Create 8 rings stacked along Z, each a circle of varying radius
