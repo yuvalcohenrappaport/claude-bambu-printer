@@ -65,6 +65,8 @@ def export_mesh(filepath: str):
     ext = filepath.lower().rsplit(".", 1)[-1]
     # Select the mesh object(s)
     meshes = [o for o in bpy.context.scene.objects if o.type == "MESH"]
+    if not meshes:
+        raise RuntimeError("No mesh to export")
     bpy.ops.object.select_all(action="DESELECT")
     for m in meshes:
         m.select_set(True)

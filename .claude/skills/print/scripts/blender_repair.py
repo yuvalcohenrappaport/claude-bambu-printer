@@ -25,7 +25,15 @@ import blender_bridge  # noqa: E402
 
 
 def backup_original(filepath: str) -> str:
-    """Copy `filepath` to `<filepath>.original` if no backup exists. Return backup path."""
+    """Copy `filepath` to `<filepath>.original` if no backup exists. Return backup path.
+
+    Invariant: the backup is the FIRST-EVER version of the file. Subsequent
+    repair runs on the same file do NOT overwrite the existing backup, so
+    the user can always restore the pre-repair state even after multiple
+    repair iterations. This function is not concurrency-safe — two processes
+    writing the same backup simultaneously would race, but the skill has no
+    concurrent invocation path.
+    """
     backup = f"{filepath}.original"
     if not os.path.exists(backup):
         shutil.copy2(filepath, backup)

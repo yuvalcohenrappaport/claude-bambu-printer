@@ -1735,6 +1735,7 @@ def test_repair_propagates_blender_error(tmp_path, capsys):
 
     assert result["status"] == "error"
     assert "cannot repair" in result["error"]
+    assert result["backup"] == str(target) + ".original"
 
 
 def test_cli_missing_input_returns_error(capsys):
@@ -1872,6 +1873,8 @@ def export_mesh(filepath: str):
     ext = filepath.lower().rsplit(".", 1)[-1]
     # Select the mesh object(s)
     meshes = [o for o in bpy.context.scene.objects if o.type == "MESH"]
+    if not meshes:
+        raise RuntimeError("No mesh to export")
     bpy.ops.object.select_all(action="DESELECT")
     for m in meshes:
         m.select_set(True)
@@ -1977,7 +1980,15 @@ import blender_bridge  # noqa: E402
 
 
 def backup_original(filepath: str) -> str:
-    """Copy `filepath` to `<filepath>.original` if no backup exists. Return backup path."""
+    """Copy `filepath` to `<filepath>.original` if no backup exists. Return backup path.
+
+    Invariant: the backup is the FIRST-EVER version of the file. Subsequent
+    repair runs on the same file do NOT overwrite the existing backup, so
+    the user can always restore the pre-repair state even after multiple
+    repair iterations. This function is not concurrency-safe — two processes
+    writing the same backup simultaneously would race, but the skill has no
+    concurrent invocation path.
+    """
     backup = f"{filepath}.original"
     if not os.path.exists(backup):
         shutil.copy2(filepath, backup)

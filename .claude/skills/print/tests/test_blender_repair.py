@@ -55,6 +55,7 @@ def test_repair_propagates_blender_error(tmp_path, capsys):
 
     assert result["status"] == "error"
     assert "cannot repair" in result["error"]
+    assert result["backup"] == str(target) + ".original"
 
 
 def test_cli_missing_input_returns_error(capsys):
