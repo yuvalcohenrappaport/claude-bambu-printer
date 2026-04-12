@@ -51,11 +51,14 @@ def audit_file(input_file: str) -> dict:
         output_json = tf.name
 
     try:
-        run = blender_bridge.run_bpy_script(
-            str(BPY_AUDIT),
-            [input_file, output_json],
-            timeout=60,
-        )
+        try:
+            run = blender_bridge.run_bpy_script(
+                str(BPY_AUDIT),
+                [input_file, output_json],
+            )
+        except (blender_bridge.BlenderNotFoundError, FileNotFoundError) as e:
+            return {"status": "error", "error": str(e)}
+
         if not run.success:
             return {
                 "status": "error",

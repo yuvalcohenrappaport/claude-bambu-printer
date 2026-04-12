@@ -1536,12 +1536,20 @@ def test_needs_repair_flags_only_fixable_issues():
     }) is True
 ```
 
+  Additional tests appended (2026-04-12, quality fix):
+  - `test_audit_catches_blender_not_found_error` — BlenderNotFoundError raised by bridge returns structured error
+  - `test_audit_catches_file_not_found_from_bridge` — FileNotFoundError raised by bridge returns structured error
+
 - [ ] **Step 2: Run tests to verify they fail**
 
 Run: `cd ~/Documents/claude-bambulab-printer && python3 -m pytest .claude/skills/print/tests/test_blender_audit.py -v`
 Expected: FAIL with `ModuleNotFoundError: No module named 'blender_audit'`.
 
 - [ ] **Step 3: Write the implementation**
+
+  Quality fixes applied (2026-04-12):
+  - Removed `timeout=60` override from `run_bpy_script` call — bridge default (120s) applies now
+  - Added inner try/except catching `BlenderNotFoundError` and `FileNotFoundError` to return structured error dict instead of crashing
 
 Create `.claude/skills/print/scripts/blender_audit.py`:
 

@@ -103,3 +103,35 @@ def test_needs_repair_flags_only_fixable_issues():
         "flipped_normals": 2,
         "issues": ["2 flipped normals"],
     }) is True
+
+
+def test_audit_catches_blender_not_found_error(tmp_path, capsys):
+    """If Blender isn't installed, audit_file returns structured error, not a crash."""
+    target = tmp_path / "model.stl"
+    target.write_bytes(b"fake")
+
+    with patch.object(
+        blender_bridge, "run_bpy_script",
+        side_effect=blender_bridge.BlenderNotFoundError("Blender not found"),
+    ):
+        rc = blender_audit.main([str(target)])
+    assert rc == 1
+    data = json.loads(capsys.readouterr().out)
+    assert data["status"] == "error"
+    assert "Blender not found" in data["error"]
+
+
+def test_audit_catches_file_not_found_from_bridge(tmp_path, capsys):
+    """If the bpy audit script path doesn't exist, return structured error."""
+    target = tmp_path / "model.stl"
+    target.write_bytes(b"fake")
+
+    with patch.object(
+        blender_bridge, "run_bpy_script",
+        side_effect=FileNotFoundError("bpy script not found: /bogus/audit.py"),
+    ):
+        rc = blender_audit.main([str(target)])
+    assert rc == 1
+    data = json.loads(capsys.readouterr().out)
+    assert data["status"] == "error"
+    assert "not found" in data["error"].lower()
