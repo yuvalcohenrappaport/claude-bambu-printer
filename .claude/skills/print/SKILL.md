@@ -22,6 +22,8 @@ Generate print-ready 3MF files from natural language descriptions using OpenSCAD
 - Do NOT send to printer without showing confirmation summary first.
 - Do NOT cancel a print without user confirmation.
 - Do NOT auto-setup printer. Always ask user before running setup flow.
+- Do NOT use Blender for mechanical/parametric shapes. OpenSCAD is the default — Blender is only proposed when the organic-shape heuristic fires (Step 2b).
+- Do NOT hardcode the 3MF export operator in generated model.py files. Always read from the cache at ~/.claude/skills/print/.blender-3mf-op.txt (see reference/blender-template.py).
 
 ## Step 0a: Check Blender Setup (runs lazily)
 
@@ -258,6 +260,27 @@ Ask about:
 - Summarize what you'll create, the dimensions, and the material.
 - Ask if that sounds right before proceeding.
 
+## Step 2b: Choose Generator (OpenSCAD or Blender)
+
+After Step 2 confirms dimensions/use-case/material, run a silent organic-shape check against the request. Do NOT ask the user to choose unless the check fires.
+
+**Organic-shape heuristic** — any of the following signal Blender is a better fit:
+
+- **Shape vocabulary:** curve, organic, smooth, ergonomic, flowing, sculpted, fairing, shell, hood, pod, lofted, swept, natural, blob, wavy, rounded
+- **Object type:** grip, handle, figurine, miniature, decorative vase, planter with curves, cosplay prop, sculpture, toy, drone aerodynamic part, ergonomic mouse/tool body
+- **Geometric signal:** the shape cannot be expressed as a combination of boxes, cylinders, linear extrusions, or simple revolutions
+
+**If none fire:** proceed silently to Step 3 (OpenSCAD) as today. No mention of Blender.
+
+**If any fire:** run Step 0a (Blender setup check) if not already done, then ask ONE line:
+
+> "This shape sounds organic — Blender handles curves and sculpted surfaces better than OpenSCAD. Want me to use Blender instead? (y/n)"
+
+- `y` or any variant → go to **Step 3b**.
+- `n` or any variant → go to **Step 3** (OpenSCAD) as today.
+
+**User override at any time:** if the user's original request contained "use blender" / "in blender" / "as a mesh", skip the heuristic and go straight to Step 3b. If they said "use openscad" / "parametric", skip to Step 3.
+
 ## Step 3: Generate OpenSCAD Code
 
 Reference @reference/openscad-guide.md for code patterns, templates, and best practices.
@@ -295,6 +318,110 @@ Generate well-structured OpenSCAD code following these rules:
 - But warn the user: "This is a complex model. The generated geometry may need manual adjustment in the .scad file. I recommend checking the preview carefully."
 
 **Show the generated OpenSCAD code to the user** so they can review and learn from it.
+
+## Step 3b: Generate Blender bpy Script (model.py)
+
+Reference @reference/blender-guide.md for bpy patterns, @reference/blender-template.py for a complete worked example, @reference/materials.md for material parameters, and @reference/design-patterns.md for tolerances/fits.
+
+Generate a self-contained bpy script following these rules:
+
+1. **Comment header:**
+   ```python
+   # [Object Name]
+   # Material: [PLA/PETG/...] | Wall: [X]mm
+   # Description: [what the user asked for]
+   ```
+
+2. **Parameters block** at the top — ALL dimensions as uppercase constants. No magic numbers in the body.
+
+3. **Scene reset** — clear default cube/light/camera so the script is idempotent.
+
+4. **Unit scale to mm** — `bpy.context.scene.unit_settings.scale_length = 0.001`
+
+5. **Arg parsing** — the script must accept the output path as the single arg after `--`:
+   ```python
+   if "--" not in sys.argv:
+       raise SystemExit("Usage: ... -- <output>")
+   output = sys.argv[sys.argv.index("--") + 1:][0]
+   ```
+
+6. **Construction** — use bmesh for custom geometry, modifiers (subsurf, bevel, solidify, mirror, boolean) for standard ops.
+
+7. **Export** — DO NOT hardcode the 3MF operator. Read `~/.claude/skills/print/.blender-3mf-op.txt`. If it contains a valid operator name, walk the `bpy.ops.*` attribute chain to resolve and call it. If it contains `NONE` or the cache is missing, fall back to STL export via `bpy.ops.wm.stl_export`. See `reference/blender-template.py` for the exact fallback pattern.
+
+   **Important (Task 4.2 lesson):** The cached operator name may exist as an attribute on `bpy.ops` but still fail at call time with a `RuntimeError` (e.g., poll failure, missing context). Wrap the operator call in `try/except RuntimeError` and fall back to STL on any exception. The canonical try/except pattern is in `reference/blender-template.py`.
+
+8. **Success marker** — print `BLENDER_OK <output_path>` to stdout as the last line on success; call `sys.exit(1)` with a stderr error on failure.
+
+9. **Material-appropriate defaults** from @reference/materials.md:
+   - PLA/ABS/ASA: wall >= 1.2mm, clearance = 0.3mm
+   - PETG/Nylon: wall >= 1.2mm, clearance = 0.35mm
+   - TPU: wall >= 1.6mm, clearance = 0.4mm
+
+**Show the generated bpy code to the user** so they can review and learn from it, same as Step 3.
+
+**Complex-model warning:** same language as Step 3 — if the shape is at the edge of reliable generation, warn the user that it may need manual adjustment.
+
+## Step 4b: Save Files (parallel to Step 4)
+
+```bash
+OUTPUT_DIR="$HOME/3d-prints/<descriptive-name>"
+mkdir -p "$OUTPUT_DIR"
+```
+
+Save the generated bpy script as `$OUTPUT_DIR/model.py`.
+
+## Step 5b: Validate, Preview, Export (Blender)
+
+Three stages, same pattern as Step 5.
+
+### Validate
+
+```bash
+/Applications/Blender.app/Contents/MacOS/Blender --background --factory-startup \
+    --python "$OUTPUT_DIR/model.py" -- /dev/null 2>"$OUTPUT_DIR/blender.log"
+```
+
+Catches bpy errors before the full export run. If this fails, go to Step 6b.
+
+### Export 3MF
+
+```bash
+python3 ~/.claude/skills/print/scripts/blender_generate.py execute \
+    "$OUTPUT_DIR/model.py" "$OUTPUT_DIR/model.3mf" 2>>"$OUTPUT_DIR/blender.log"
+```
+
+Note: if the 3MF operator isn't available in the installed Blender, the template's fallback will produce `model.stl` instead. Both are valid for BambuStudio import.
+
+### Fast Preview PNG
+
+```bash
+# Use whichever file was produced above (prefer .3mf, fall back to .stl)
+OUTPUT_FILE="$OUTPUT_DIR/model.3mf"
+[ -f "$OUTPUT_FILE" ] || OUTPUT_FILE="$OUTPUT_DIR/model.stl"
+
+python3 ~/.claude/skills/print/scripts/blender_generate.py preview \
+    "$OUTPUT_FILE" "$OUTPUT_DIR/preview.png" 2>>"$OUTPUT_DIR/blender.log"
+```
+
+This is the **fast** matte preview for shape-check during iteration. It is NOT the hero render (Step 8.3). Takes ~3-5s.
+
+## Step 6b: Error Handling and Retry (Blender)
+
+Identical pattern to Step 6:
+
+1. Read `cat "$OUTPUT_DIR/blender.log"`
+2. Analyze the error (use @reference/blender-guide.md "Common error patterns" section).
+3. Fix the `.py` code based on the error.
+4. Save the fixed version to `$OUTPUT_DIR/model.py`.
+5. Explain to the user what was wrong and what you fixed.
+6. Retry Step 5b.
+
+**Retry up to 3 total attempts.** On each retry, explain the error and fix.
+
+**After 3 failed attempts:**
+- Show the error and the current `.py` to the user.
+- Explain: "I wasn't able to fix this automatically. You can edit the .py file directly at `$OUTPUT_DIR/model.py` and run `python3 ~/.claude/skills/print/scripts/blender_generate.py execute ...` manually."
 
 ## Step 4: Save Files
 
@@ -373,11 +500,11 @@ After successful render and export, present a summary to the user:
 
 4. **File path**: Show the full path to the .3mf file.
    ```
-   3MF file: $OUTPUT_DIR/model.3mf
-   OpenSCAD source: $OUTPUT_DIR/model.scad
+   3MF file: $OUTPUT_DIR/model.3mf (or model.stl if 3MF operator unavailable in Blender)
+   Source: $OUTPUT_DIR/model.scad (OpenSCAD) OR $OUTPUT_DIR/model.py (Blender)
    ```
 
-5. **OpenSCAD code**: Show the complete generated code so the user can review, learn, or modify it.
+5. **Source code**: Show the complete generated OpenSCAD or bpy code so the user can review, learn, or modify it.
 
 6. **Print settings**: If Step 12 was applied, include the recommended print settings in the summary (purpose, key parameters, and the BambuStudio equivalent preset name).
 
@@ -661,17 +788,25 @@ This step is triggered when the user asks to change a previously generated model
 
 Check conversation context for recently generated models. If starting a fresh conversation, browse `~/3d-prints/` directories to find the .scad file the user is referring to.
 
+- The source file is either `model.scad` (OpenSCAD) or `model.py` (Blender). Check both.
+
 ### 2. Create Versioned Backup Before ANY Edit
 
 Always back up the current model before making changes. Use sequential version numbers.
 
 ```bash
 OUTPUT_DIR="$HOME/3d-prints/<project-name>"
+# Detect source format
+SRC=""
+[ -f "$OUTPUT_DIR/model.scad" ] && SRC="$OUTPUT_DIR/model.scad"
+[ -f "$OUTPUT_DIR/model.py" ] && SRC="$OUTPUT_DIR/model.py"
+EXT="${SRC##*.}"
+
 NEXT_VER=1
-while [ -f "$OUTPUT_DIR/model_v${NEXT_VER}.scad" ]; do
+while [ -f "$OUTPUT_DIR/model_v${NEXT_VER}.${EXT}" ]; do
     NEXT_VER=$((NEXT_VER + 1))
 done
-cp "$OUTPUT_DIR/model.scad" "$OUTPUT_DIR/model_v${NEXT_VER}.scad"
+cp "$SRC" "$OUTPUT_DIR/model_v${NEXT_VER}.${EXT}"
 ```
 
 ### 3. Read and Understand the .scad File
@@ -710,6 +845,9 @@ Only render after the user confirms.
 
 Use the same render/export commands from Steps 5-6 (preview PNG + 3MF export).
 
+- For `.scad`: use the OpenSCAD commands from Step 5.
+- For `.py`: use the commands from Step 5b.
+
 ### 7. Check for Messiness
 
 Reference @reference/printability-checklist.md Section 3 (Messiness Detection).
@@ -733,6 +871,8 @@ Accept both input formats:
 Determine which axes are affected (all for uniform, specific for per-axis).
 
 ### 2. Preferred Approach: Modify Parametric Variables
+
+> **Applies to both `.scad` and `.py` files.** For `.py`, the parameters are uppercase constants at the top of the file (see `@reference/blender-template.py` for the convention).
 
 Read the .scad file and classify variables:
 - **Dimension variables** (width, depth, height, diameter, length, etc.) -- these get scaled
@@ -914,3 +1054,6 @@ If the unzip/inject/rezip process fails for any reason:
 - @scripts/blender_audit.py -- Mesh audit CLI (manifold check, normals, dimensions, triangles)
 - @scripts/blender_repair.py -- Mesh repair CLI with backup
 - @scripts/blender_render.py -- Photo-quality render CLI (Eevee, 1280x960, 3-point lighting)
+- @scripts/blender_generate.py -- Blender generation orchestrator (execute model.py + fast preview)
+- @scripts/blender_probe.py -- 3MF export operator discovery
+- @reference/blender-template.py -- Worked example bpy script (copy and fill in)
