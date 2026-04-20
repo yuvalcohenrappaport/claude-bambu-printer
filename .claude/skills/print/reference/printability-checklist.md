@@ -16,16 +16,20 @@ These patterns frequently produce unprintable or poor-quality results. Warn the 
 - [ ] Unsupported horizontal surfaces spanning more than 50mm -- long flat overhangs sag or collapse without supports
 - [ ] Complex boolean chains: 4 or more nested `difference()` / `intersection()` operations -- often produces non-manifold geometry or unexpected voids
 - [ ] `hull()` connecting distant points -- resulting geometry is unpredictable and hard to reason about
+- [ ] Fillets on bottom edges -- start at ~90 degrees, creating unsupported overhangs that droop on the first layers
 
 ### MEDIUM RISK -- Note AFTER Generating
 
 These patterns usually work but may need supports or careful slicer settings. Proceed with generation, then mention the concern.
 
 - [ ] `rotate()` creating 45-60 degree overhangs -- printable but surface quality degrades; supports help
-- [ ] Bridge spans between 30-50mm -- most printers can bridge this but with visible sag
+- [ ] Bridge spans between 10-50mm -- most printers can bridge short spans but with increasing sag
 - [ ] Interlocking parts with tight tolerances (less than 0.3mm clearance) -- may fuse or not fit depending on printer calibration
 - [ ] Features smaller than 2mm in any dimension -- printable but fragile and detail may be lost
 - [ ] `hull()` between nearby points -- generally predictable but verify in preview
+- [ ] Walls not a multiple of nozzle diameter (0.4mm) -- slicer may leave gaps or over-extrude
+- [ ] Large flat first layer surface -- prone to elephant's foot and warping
+- [ ] Horizontal holes -- will print as ovals; suggest teardrop profile or vertical orientation
 
 ### LOW RISK -- No Special Note Needed
 
@@ -33,9 +37,10 @@ These patterns print reliably on any well-calibrated FDM printer.
 
 - [ ] Axis-aligned primitives: `cube()`, `cylinder()` with no rotation
 - [ ] Simple `difference()` operations (holes, cutouts)
-- [ ] Chamfers and fillets at 45 degrees
+- [ ] Chamfers at 45 degrees (self-supporting)
 - [ ] Features greater than 3mm in all dimensions
 - [ ] Standard patterns: boxes, brackets, holders, stands, trays
+- [ ] Walls that are multiples of 0.4mm nozzle diameter
 
 ## Section 2: Confidence Language Templates
 
@@ -57,6 +62,10 @@ Use natural language to communicate confidence. Never use percentages, tier labe
 
 > "The interlocking parts have 0.25mm clearance -- that's tight. If they're too snug after printing, you can sand the mating surfaces or I can increase the tolerance."
 
+> "I used a 1.5mm wall here -- that's not a clean multiple of the 0.4mm nozzle, so the slicer might leave a small gap. Want me to round it to 1.6mm?"
+
+> "This has a large flat base, so you might see some elephant's foot on the first layer. I added a small chamfer to the bottom edge to help with that."
+
 ### High Risk Examples
 
 > "Organic curves like this are tricky to get right in OpenSCAD -- the mesh may have rough spots. I can try it, or I can offer a simpler geometric version that'll definitely print well. Which do you prefer?"
@@ -69,7 +78,11 @@ Use natural language to communicate confidence. Never use percentages, tier labe
 
 > "That's a 60mm unsupported horizontal span. The filament will droop in the middle without supports underneath. I can add built-in support ribs to the design, or you can enable tree supports in the slicer. Want me to add ribs?"
 
-> "This part has 0.2mm clearance for a snap-fit joint. That's below what most FDM printers can reliably achieve -- the pieces will likely fuse together. I'd recommend at least 0.3mm for PLA. Should I adjust it?"
+> "This part has 0.2mm clearance for a snap-fit joint. That's below what most FDM printers can reliably achieve -- the pieces will likely fuse together. I'd recommend at least 0.5mm for snap-fits. Should I adjust it?"
+
+> "I notice there's a fillet on the bottom edge here. Fillets start at nearly 90 degrees which creates a tiny overhang that droops. I'll use a 45-degree chamfer instead -- same visual effect but prints cleanly."
+
+> "This has horizontal holes that will come out slightly oval. I can use teardrop profiles (self-supporting) or you can drill them out after printing. Which would you prefer?"
 
 ## Section 3: Messiness Detection
 
@@ -97,3 +110,14 @@ Both conditions must be true:
 - Write a fresh model.scad from scratch that produces the same geometry
 - Use clean parametric structure with all current dimensions and features
 - Show the new code to the user for review before rendering
+
+## Section 4: Print Orientation Check
+
+After generating a model, briefly assess whether the default orientation (as modeled) is optimal for printing. Flag if:
+
+- Primary load path runs along Z-axis (layer adhesion is the weak point)
+- Large unsupported overhangs that could be eliminated by rotating 90 degrees
+- Aesthetic surfaces face up (supported surface) when they could face down (bed surface) or sideways
+- Tall thin geometry that would be more stable printed on its side
+
+Include an orientation note in the output summary when the optimal print orientation differs from the modeled orientation.

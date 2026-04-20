@@ -249,7 +249,7 @@ Ask about:
 
 2. **Use case**: "What will you use this for?" -- understanding the use case helps with structural decisions (wall thickness, mounting holes, reinforcement).
 
-3. **Material**: "What material will you print with? (PLA is the default if you're not sure)" -- material determines wall thickness and tolerance values per @reference/materials.md.
+3. **Material**: "What material will you print with? (PLA is the default if you're not sure)" -- material determines wall thickness, tolerance, shrinkage compensation, and print settings per @reference/materials.md. If the use case suggests a specific material (e.g., outdoor = ASA, flexible = TPU, heat-resistant = ABS), proactively suggest it.
 
 **If the description is too vague** (e.g., "make me something cool", "print something useful"):
 - Do NOT guess or generate a random object.
@@ -285,25 +285,27 @@ After Step 2 confirms dimensions/use-case/material, run a silent organic-shape c
 
 Reference @reference/openscad-guide.md for code patterns, templates, and best practices.
 Reference @reference/materials.md for material-specific design parameters.
+Reference @reference/design-patterns.md for functional patterns (snap-fits, heat-set inserts, tolerances, orientation).
 
 Generate well-structured OpenSCAD code following these rules:
 
 1. **Comment header** at the top:
    ```openscad
    // [Object Name]
-   // Material: [PLA/PETG/TPU] | Wall: [X]mm | Tolerance: [Y]mm
+   // Material: [PLA/PETG/TPU/ABS/ASA/Nylon/etc.] | Wall: [X]mm | Tolerance: [Y]mm
    // Description: [what the user asked for]
    ```
 
 2. **Parametric variables section** -- ALL dimensions as named variables at the top. No magic numbers anywhere.
    - Use OpenSCAD Customizer annotations: `/* [Group Name] */` above variable groups.
 
-3. **Quality setting**: `$fn = 60;` (default). Adjust only if the model is very simple (increase) or very complex (decrease for render speed).
+3. **Quality setting**: `$fa = 1; $fs = 0.4;` (production). Use `$fn` only for specific polygon counts (hexagons, etc.). See openscad-guide.md for details.
 
-4. **Material-appropriate values**:
-   - PLA: wall >= 1.2mm, clearance = 0.3mm
-   - PETG: wall >= 1.2mm, clearance = 0.35mm
+4. **Material-appropriate values** (see materials.md for full list including ABS, ASA, Nylon, CF variants):
+   - PLA/ABS/ASA: wall >= 1.2mm, clearance = 0.3mm
+   - PETG/Nylon: wall >= 1.2mm, clearance = 0.35mm
    - TPU: wall >= 1.6mm, clearance = 0.4mm
+   - **Wall thickness must be a multiple of nozzle diameter** (0.8, 1.2, 1.6, 2.0mm for 0.4mm nozzle)
 
 5. **Separate modules** for distinct components (e.g., `module base()`, `module lid()`).
 
@@ -312,6 +314,14 @@ Generate well-structured OpenSCAD code following these rules:
    - No zero-thickness walls.
    - Center objects at origin, use explicit `translate()`.
    - Add tolerance/clearance for all interlocking parts.
+   - **Use chamfers (not fillets) on bottom edges** -- fillets create unsupported overhangs.
+   - **Add 0.1-0.2mm to hole diameters** -- FDM always undersizes holes.
+   - **Use teardrop profiles for horizontal holes** -- standard circles sag at the top.
+
+7. **Functional patterns** (when applicable):
+   - For screw mounting: use heat-set insert bosses (see design-patterns.md) instead of printed threads
+   - For snap-fits: 0.5mm clearance, fillet at cantilever root, flex NOT along Z-axis
+   - For interlocking parts: apply clearance from design-patterns.md fit type table
 
 **For complex models** that may be beyond reliable generation accuracy:
 - Try anyway -- do your best.
@@ -442,6 +452,14 @@ Write the .scad file to `$OUTPUT_DIR/model.scad`.
 
 Run OpenSCAD CLI to render a preview and export the 3MF file.
 
+### Validate First (catch errors before full render)
+
+```bash
+"$OPENSCAD" --hardwarnings -o /dev/null "$OUTPUT_DIR/model.scad" 2>"$OUTPUT_DIR/openscad.log"
+```
+
+If validation fails, fix errors before proceeding to render (saves time on complex models).
+
 ### Preview PNG
 
 ```bash
@@ -498,15 +516,31 @@ After successful render and export, present a summary to the user:
 
 3. **Material**: State which material was used and the design parameters applied (wall thickness, clearance).
 
-4. **File path**: Show the full path to the .3mf file.
+4. **Print orientation**: Check @reference/printability-checklist.md Section 4 and @reference/design-patterns.md "Print Orientation Strategy". If the optimal print orientation differs from how the model is positioned, note it:
+   ```
+   Print orientation: Print as-is (flat base on bed)
+   ```
+   or:
+   ```
+   Print orientation: Rotate 90 degrees so the bracket lies flat -- this puts
+   the load path in the XY plane (strongest direction) instead of along Z.
+   ```
+
+5. **File path**: Show the full path to the .3mf file.
    ```
    3MF file: $OUTPUT_DIR/model.3mf (or model.stl if 3MF operator unavailable in Blender)
    Source: $OUTPUT_DIR/model.scad (OpenSCAD) OR $OUTPUT_DIR/model.py (Blender)
    ```
 
-5. **Source code**: Show the complete generated OpenSCAD or bpy code so the user can review, learn, or modify it.
+6. **Source code**: Show the complete generated OpenSCAD or bpy code so the user can review, learn, or modify it.
 
-6. **Print settings**: If Step 12 was applied, include the recommended print settings in the summary (purpose, key parameters, and the BambuStudio equivalent preset name).
+7. **Print settings**: If Step 12 was applied, include the recommended print settings in the summary (purpose, key parameters, and the BambuStudio equivalent preset name).
+
+8. **Post-processing** (if applicable): Based on the material and use case, suggest relevant post-processing from @reference/design-patterns.md "Post-Processing Reference". Only mention when genuinely useful:
+   - Decorative PLA: "Sand with 150-400 grit, then filler primer for a smooth painted finish"
+   - ABS/ASA: "Acetone vapor smoothing (10-20 min) will eliminate layer lines"
+   - Functional with inserts: "Install M3 heat-set inserts with soldering iron at 350C"
+   - Skip this for simple functional prints that don't need finishing.
 
 ## Step 8: Offer BambuStudio or Send to Printer
 
@@ -1041,10 +1075,11 @@ If the unzip/inject/rezip process fails for any reason:
 
 ## Reference Files
 
-- @reference/openscad-guide.md -- OpenSCAD code patterns, templates, anti-patterns, CLI reference
-- @reference/materials.md -- Material-specific design parameters (PLA, PETG, TPU)
-- @reference/printability-checklist.md -- Geometry risk patterns, confidence language, messiness detection
-- @reference/print-settings.md -- Purpose-based print profiles, geometry adjustments, BambuStudio parameters
+- @reference/openscad-guide.md -- OpenSCAD code patterns, templates, anti-patterns, BOSL2, CLI reference
+- @reference/materials.md -- Material-specific design parameters (PLA, PETG, TPU, ABS, ASA, Nylon, CF variants)
+- @reference/design-patterns.md -- Tolerances, snap-fits, heat-set inserts, print orientation, post-processing
+- @reference/printability-checklist.md -- Geometry risk patterns, confidence language, messiness detection, orientation check
+- @reference/print-settings.md -- Purpose-based print profiles, geometry adjustments, infill selection, first layer, calibration, BambuStudio parameters
 - @scripts/makerworld_search.py -- MakerWorld search and download CLI (Playwright-based)
 - @scripts/printer_setup.py -- BambuLab account auth, printer selection, config management
 - @scripts/printer_control.py -- Send prints, check status, pause/resume/cancel
